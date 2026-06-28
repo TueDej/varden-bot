@@ -8,6 +8,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, Comma
 from telegram.constants import ParseMode
 from news import fetch_news
 from jokes import fetch_random_joke
+from pickup import fetch_random_pickup_line, fetch_random_compliment
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,6 +34,24 @@ async def joke(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     joke_text = await fetch_random_joke()
     msg = await update.message.reply_text(joke_text)
+    bot_messages[chat_id].append(msg.message_id)
+
+async def pickup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    if chat_id not in bot_messages:
+        bot_messages[chat_id] = []
+    
+    line = await fetch_random_pickup_line()
+    msg = await update.message.reply_text(line)
+    bot_messages[chat_id].append(msg.message_id)
+
+async def compliment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    if chat_id not in bot_messages:
+        bot_messages[chat_id] = []
+    
+    line = await fetch_random_compliment()
+    msg = await update.message.reply_text(line)
     bot_messages[chat_id].append(msg.message_id)
 
 async def pull(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -132,6 +151,8 @@ def main():
     app.add_handler(CommandHandler("btop", btop))
     app.add_handler(CommandHandler("clear", clear))
     app.add_handler(CommandHandler("joke", joke))
+    app.add_handler(CommandHandler("pickup", pickup))
+    app.add_handler(CommandHandler("compliment", compliment))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     logger.info("Bot started")
     app.run_polling()
