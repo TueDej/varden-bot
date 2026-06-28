@@ -14,6 +14,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+GF_USER_ID = int(os.environ.get('GF_USER_ID', '190637471'))
 chat_ids = set()
 bot_messages = {}
 
@@ -138,8 +139,44 @@ async def daily_news(bot):
         except Exception as e:
             logger.error(f"Error fetching news: {e}")
 
+async def scheduled_pickups(bot):
+    SCHEDULE_HOURS = [9, 21]
+    
+    while True:
+        now = datetime.now(timezone.utc)
+        tehran_now = now + TEHRAN_OFFSET
+        
+        next_time = None
+        for hour in SCHEDULE_HOURS:
+            target = tehran_now.replace(hour=hour, minute=0, second=0, microsecond=0)
+            if tehran_now < target:
+                next_time = target
+                break
+        
+        if next_time is None:
+            target = tehran_now.replace(hour=SCHEDULE_HOURS[0], minute=0, second=0, microsecond=0) + timedelta(days=1)
+            next_time = target
+        
+        target_utc = next_time - TEHRAN_OFFSET
+        wait_seconds = (target_utc - now).total_seconds()
+        
+        logger.info(f"Next pickup in {wait_seconds/3600:.1f} hours")
+        await asyncio.sleep(wait_seconds)
+        
+        try:
+            line = await fetch_random_pickup_line()
+            await bot.send_message(chat_id=GF_USER_ID, text=f"Hey beautiful! {line}")
+            
+            await asyncio.sleep(60)
+            
+            compliment = await fetch_random_compliment()
+            await bot.send_message(chat_id=GF_USER_ID, text=compliment)
+        except Exception as e:
+            logger.error(f"Error sending pickup: {e}")
+
 async def post_init(application):
     asyncio.create_task(daily_news(application.bot))
+    asyncio.create_task(scheduled_pickups(application.bot))
 
 def main():
     if not TOKEN:
