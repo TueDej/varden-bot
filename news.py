@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 RSS_FEEDS = {
+    "Void Linux": "https://voidlinux.org/atom.xml",
     "Phoronix": "https://www.phoronix.com/rss.php",
     "Linux Journal": "https://www.linuxjournal.com/feed",
     "Tom's Hardware": "https://www.tomshardware.com/feeds/all",
