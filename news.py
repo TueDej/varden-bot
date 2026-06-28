@@ -45,14 +45,14 @@ async def fetch_news() -> str:
     
     message = header
     for i, (source, title, summary, link) in enumerate(items, 1):
-        message += f"{i}. [{source}] {title}\n"
-        if len(summary) > 200:
-            message += f"{summary[:200]}...\n"
+        message += f"{i}. <b>[{source}] {title}</b>\n"
+        if len(summary) > 300:
+            message += f"{summary[:300]}...\n"
         else:
             message += f"{summary}\n"
         message += f"🔗 {link}\n\n"
     
-    return message[:4000]
+    return message[:4090]
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

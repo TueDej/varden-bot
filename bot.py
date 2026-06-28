@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
+from telegram.constants import ParseMode
 from news import fetch_news
 
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +22,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def pull(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Fetching news...")
     news = await fetch_news()
-    await update.message.reply_text(news)
+    await update.message.reply_text(news, parse_mode=ParseMode.HTML)
 
 async def daily_news(bot):
     while True:
@@ -42,7 +43,7 @@ async def daily_news(bot):
             news = await fetch_news()
             for chat_id in chat_ids.copy():
                 try:
-                    await bot.send_message(chat_id=chat_id, text=news)
+                    await bot.send_message(chat_id=chat_id, text=news, parse_mode=ParseMode.HTML)
                 except Exception as e:
                     logger.error(f"Failed to send to {chat_id}: {e}")
                     chat_ids.discard(chat_id)
