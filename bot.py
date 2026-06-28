@@ -76,7 +76,7 @@ async def food(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     await update.message.reply_text("چی چی میخوی؟", reply_markup=reply_markup)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=".", reply_markup=kb)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=" ", reply_markup=kb)
 
 async def food_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -228,7 +228,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [[KeyboardButton("گذا میخاممم!")]],
         resize_keyboard=True
     )
-    await update.message.reply_text("Welcome! Use the button below:", reply_markup=kb)
+    await update.message.reply_text("Welcome!", reply_markup=kb)
 
 async def handle_food_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await food(update, context)
