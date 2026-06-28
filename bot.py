@@ -3,7 +3,7 @@ import asyncio
 import logging
 import psutil
 from datetime import datetime, timezone, timedelta
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, CallbackQueryHandler, filters
 from telegram.constants import ParseMode
 from news import fetch_news
@@ -69,7 +69,14 @@ async def food(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("جوجه کباب 🍢", callback_data="food_joojeh")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    kb = ReplyKeyboardMarkup(
+        [[KeyboardButton("/food")]],
+        resize_keyboard=True
+    )
+    
     await update.message.reply_text("چی چی میخوی؟", reply_markup=reply_markup)
+    await update.message.reply_text("Use the button below:", reply_markup=kb)
 
 async def food_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
