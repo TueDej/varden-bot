@@ -4,40 +4,50 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-PERSIAN_PICKUP_LINES = [
-    "اگه زیبایی یه جرم بود، تو محکوم به حبس ابد بودی!",
-    "خدا وقتی تو رو می‌ساخت، حتماً خیلی حالش خوب بوده!",
-    "تو مثل قهوه صبحگاهی می‌مونی، بدون تو روزم شروع نمیشه!",
-    "اگه ستاره بودم، هر شب از آسمون پایین میومدم تا بهت بگم چقدر خوشگلی!",
-    "تو اونقدر خوشگلی که حتی مامور راهنمایی رانندگی هم بهت نمره منفی نمیده!",
-    "می‌دونی چرا آسمون آبیه؟ چون خدا داشته به چشمات نگاه می‌کرده!",
-    "تو از همه چیزهای خوب دنیا بهتری، حتی از پیتزا!",
-    "اگه یه گل بودم، هر روز صبح بهت سلام می‌کردم!",
-    "تو اونقدر خوشگلی که حتی مامانتم بهت غبطه می‌خوره!",
-    "خدا یه فرشته فرستاد، منم اسمشو نشنیدم ولی تو شبیهشی!",
-    "اگه یه شب ستاره‌ها رو بشمری، بدون اون یکی ستاره منی!",
-    "تو مثل چایی تازه دم می‌مونی، بدون تو حالم خرابه!",
-    "می‌دونی چرا ماه اینقدر درخشنده‌ست؟ چون از تو یاد گرفته!",
-    "تو از همه چیزای دنیا قشنگتری، حتی از تعطیلات!",
-    "اگه یه اهنگ بودم، هر روز برات می‌خوندم!",
+PICKUP_LINES = [
+    "Are you a magician? Because whenever I look at you, everyone else disappears.",
+    "Do you have a map? Because I just got lost in your eyes.",
+    "Are you a parking ticket? Because you've got 'fine' written all over you.",
+    "Is your name Wi-Fi? Because I'm really feeling a connection.",
+    "Are you a bank loan? Because you've got my interest.",
+    "Do you believe in love at first sight, or should I walk by again?",
+    "Are you a campfire? Because you're hot and I want s'more.",
+    "You must be a light switch, because you just turned me on.",
+    "Are you a time traveler? Because I see you in my future.",
+    "Do you have a Band-Aid? Because I just scraped my knee falling for you.",
+    "Are you a camera? Because every time I look at you, I smile.",
+    "Is your dad a boxer? Because you're a knockout.",
+    "Are you a snowstorm? Because you make my heart race.",
+    "Do you have a sunburn, or are you always this hot?",
+    "Are you a cat? Because you're purr-fect.",
+    "Are you a dictionary? Because you add meaning to my life.",
+    "Is your name Google? Because you have everything I've been searching for.",
+    "Are you a loan? Because you've got my interest.",
+    "Do you have a name, or can I call you mine?",
+    "Are you a volcano? Because I lava you.",
 ]
 
-PERSIAN_COMPLIMENTS = [
-    "تو یه الماسی که تو یه گوشه افتاده، هنوز درخشنت رو از دست ندادی!",
-    "خدا وقتی تو رو می‌ساخت، حتماً بهترین متریال رو استفاده کرده!",
-    "تو اونقدر خوبی که حتی ماه هم از تو خجالت می‌کشه!",
-    "تو مثل یه کتاب خوب می‌مونی، هر چی بیشتر بشناسمت بیشتر دوستت دارم!",
-    "تو اونقدر ویژگی‌های خوب داری که حتی لیست بلندترین هم نمی‌تونه بنویستش!",
-    "خدا وقتی تو رو می‌ساخت، حتماً خیلی دقت کرده!",
-    "تو از همه چیزهای خوب دنیا بهتری، حتی از تعطیلات!",
-    "تو مثل یه گل زیبا می‌مونی، هر روز زیباتر می‌شی!",
-    "تو اونقدر مهربونی که حتی حیوانات هم عاشقتن!",
-    "خدا یه معجزه فرستاد، منم اسمشو نشنیدم ولی تویی!",
-    "تو اونقدر خوشگلی که حتی مامور پارکینگ هم بهت جریمه نمیده!",
-    "تو مثل یه روز آفتابی می‌مونی، بدون تو همه چیز تاریکه!",
-    "تو از همه چیزای دنیا قشنگتری، حتی از طلوع آفتاب!",
-    "تو اونقدر خوبی که حتی ماه هم از تو یاد می‌گیره!",
-    "خدا یه هدیه فرستاد، منم اسمشو نشنیدم ولی تویی!",
+COMPLIMENTS = [
+    "You have the best laugh I've ever heard.",
+    "Your eyes are incredible.",
+    "You make the world a better place just by being in it.",
+    "You have the most amazing smile.",
+    "You're even more beautiful on the inside than you are on the outside.",
+    "You're one of a kind, and that's the best kind.",
+    "Your kindness is contagious.",
+    "You make everything more fun.",
+    "You're the best thing that's ever happened to me.",
+    "You have great taste, obviously — you're talking to me.",
+    "You light up every room you walk into.",
+    "Your intelligence is incredibly attractive.",
+    "You make me want to be a better person.",
+    "You're the reason I look at my phone and smile.",
+    "You're more amazing than you know.",
+    "You have the patience of a saint.",
+    "Your creativity blows my mind.",
+    "You're the kind of person everyone wants to be around.",
+    "You're absolutely stunning.",
+    "You make the ordinary extraordinary.",
 ]
 
 async def fetch_random_pickup_line() -> str:
@@ -49,7 +59,7 @@ async def fetch_random_pickup_line() -> str:
                 return f'"{data["content"]}"\n— {data["author"]}'
     except Exception as e:
         logger.warning(f"Quote API failed: {e}")
-    return random.choice(PERSIAN_PICKUP_LINES)
+    return random.choice(PICKUP_LINES)
 
 async def fetch_random_compliment() -> str:
     try:
@@ -60,4 +70,4 @@ async def fetch_random_compliment() -> str:
                 return data["compliment"]
     except Exception as e:
         logger.warning(f"Compliment API failed: {e}")
-    return random.choice(PERSIAN_COMPLIMENTS)
+    return random.choice(COMPLIMENTS)
