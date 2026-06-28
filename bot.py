@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import random
 import psutil
 from datetime import datetime, timezone, timedelta
 from telegram import Update
@@ -17,12 +18,44 @@ bot_messages = {}
 
 TEHRAN_OFFSET = timedelta(hours=3, minutes=30)
 
+PERSIAN_JOKES = [
+    "یارو میره رستوران، میگه آقا چی دارید؟ میگه غذا داریم. میگه خب چی دارید؟ میگه آقا غذا گفتم دیگه!",
+    "یارو زنگ میزنه به دوستش، میگه کجایی؟ دوستش میگه خونه. یارو میگه پس چرا درو باز نمیکنی؟ دوستش میگه آقا تو پشت تلفنی!",
+    "یارو میره داروخانه، میگه آقا یه چیزی بدید خنکم کنه. میگه برو پشت یخچال وایسا!",
+    "یارو میره کتابخونه، میگه آقا کتاب چاپلوسی دارید؟ میگه آقا شما خیلی خوشگلید ولی کتاب نداریم!",
+    "یارو به رفیقش میگه دیروز رفتم سینما، فیلم خیلی خوب بود. رفیقش میگه اسمش چی بود؟ یارو میگه نمیدونم، تابلوشو نخوندم!",
+    "یارو میره نانوایی، میگه آقا نون تازه دارید؟ میگه آقا نون همیشه تازهست! یارو میگه پس چرا دیشبیش بوی یخچال میده؟",
+    "یارو زنگ میزنه به شماره اورژانس، میگه آقا من خیلی گشنمه! میگن آقا اینجا اورژانسه! میگه آره میخوام زنده بمانم!",
+    "یارو میره مسجد، میگه آقا چایی دارید؟ میگن آقا اینجا مسجده! میگه آره میخوام خدا رو ببینم چایی بدم!",
+    "یارو به دوستش میگه دیروز رفتم ماهواره خریدم. دوستش میگه خوب شد؟ یارو میگه نه، آنتن نداشت!",
+    "یارو میره کافی‌نت، میگه آقا اینترنت دارید؟ میگه آره. یارو میگه پس چرا صفحه باز نمیشه؟ میگه آقا شما باید پول بدید!",
+    "یارو زنگ میزنه به رفیقش، میگه بیا بیرون بریم گردش. رفیقش میگه الان بارون میاد. یارو میگه خب با چتر میایم!",
+    "یارو میره میوه‌فروشی، میگه آقا موز چنده؟ میگه کیلویی پنج هزار. یارو میگه گرونه! میگه آقا برو باغ موز بچین!",
+    "یارو به رفیقش میگه دیروز رفتم استخر، خیلی خوش گذشت. رفیقش میگه شنا بلدی؟ یارو میگه نه ولی خیلی غرق شدم!",
+    "یارو میره رستوران، میگه آقا سوپ دارید؟ میگه آره. یارو میگه بده بخورم. میگه آقا باید پول بدی! یارو میگه آقا سوپ میخوام نه مشاوره!",
+    "یارو زنگ میزنه به دوستش، میگه کجایی؟ دوستش میگه خونه. یارو میگه پس چرا درو باز نمیکنی؟ دوستش میگه آقا تو پشت تلفنی!",
+    "یارو میره کتابخونه، میگه آقا کتاب چاپلوسی دارید؟ میگه آقا شما خیلی خوشگلید ولی کتاب نداریم!",
+    "یارو میره نانوایی، میگه آقا نون تازه دارید؟ میگه آقا نون همیشه تازهست! یارو میگه پس چرا دیشبیش بوی یخچال میده؟",
+    "یارو زنگ میزنه به شماره اورژانس، میگه آقا من خیلی گشنمه! میگن آقا اینجا اورژانسه! میگه آره میخوام زنده بمانم!",
+    "یارو میره مسجد، میگه آقا چایی دارید؟ میگن آقا اینجا مسجده! میگه آره میخوام خدا رو ببینم چایی بدم!",
+    "یارو به دوستش میگه دیروز رفتم ماهواره خریدم. دوستش میگه خوب شد؟ یارو میگه نه، آنتن نداشت!",
+]
+
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_ids.add(update.effective_chat.id)
     msg = await update.message.reply_text(update.message.text)
     chat_id = update.effective_chat.id
     if chat_id not in bot_messages:
         bot_messages[chat_id] = []
+    bot_messages[chat_id].append(msg.message_id)
+
+async def joke(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    if chat_id not in bot_messages:
+        bot_messages[chat_id] = []
+    
+    joke_text = random.choice(PERSIAN_JOKES)
+    msg = await update.message.reply_text(joke_text)
     bot_messages[chat_id].append(msg.message_id)
 
 async def pull(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -121,6 +154,7 @@ def main():
     app.add_handler(CommandHandler("pull", pull))
     app.add_handler(CommandHandler("btop", btop))
     app.add_handler(CommandHandler("clear", clear))
+    app.add_handler(CommandHandler("joke", joke))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     logger.info("Bot started")
     app.run_polling()
