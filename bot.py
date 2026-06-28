@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import psutil
 from datetime import datetime, timezone, timedelta
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
@@ -23,6 +24,21 @@ async def pull(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Fetching news...")
     news = await fetch_news()
     await update.message.reply_text(news, parse_mode=ParseMode.HTML)
+
+async def btop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    cpu = psutil.cpu_percent(interval=1)
+    mem = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+    uptime = datetime.now() - datetime.fromtimestamp(psutil.boot_time())
+    
+    msg = f"""<b>📊 Server Stats</b>
+
+<b>CPU:</b> {cpu}%
+<b>RAM:</b> {mem.percent}% ({mem.used // (1024**2)}MB / {mem.total // (1024**2)}MB)
+<b>Disk:</b> {disk.percent}% ({disk.used // (1024**3)}GB / {disk.total // (1024**3)}GB)
+<b>Uptime:</b> {str(uptime).split('.')[0]}"""
+    
+    await update.message.reply_text(msg, parse_mode=ParseMode.HTML)
 
 async def daily_news(bot):
     while True:
@@ -60,6 +76,7 @@ def main():
     
     app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler("pull", pull))
+    app.add_handler(CommandHandler("btop", btop))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     logger.info("Bot started")
     app.run_polling()
