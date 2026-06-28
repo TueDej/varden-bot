@@ -13,17 +13,29 @@ logger = logging.getLogger(__name__)
 
 TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 chat_ids = set()
+bot_messages = {}
 
 TEHRAN_OFFSET = timedelta(hours=3, minutes=30)
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_ids.add(update.effective_chat.id)
-    await update.message.reply_text(update.message.text)
+    msg = await update.message.reply_text(update.message.text)
+    chat_id = update.effective_chat.id
+    if chat_id not in bot_messages:
+        bot_messages[chat_id] = []
+    bot_messages[chat_id].append(msg.message_id)
 
 async def pull(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Fetching news...")
+    chat_id = update.effective_chat.id
+    if chat_id not in bot_messages:
+        bot_messages[chat_id] = []
+    
+    status = await update.message.reply_text("Fetching news...")
+    bot_messages[chat_id].append(status.message_id)
+    
     news = await fetch_news()
-    await update.message.reply_text(news, parse_mode=ParseMode.HTML)
+    msg = await update.message.reply_text(news, parse_mode=ParseMode.HTML)
+    bot_messages[chat_id].append(msg.message_id)
 
 async def btop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cpu = psutil.cpu_percent(interval=1)
@@ -38,16 +50,35 @@ async def btop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 <b>Disk:</b> {disk.percent}% ({disk.used // (1024**3)}GB / {disk.total // (1024**3)}GB)
 <b>Uptime:</b> {str(uptime).split('.')[0]}"""
     
-    await update.message.reply_text(msg, parse_mode=ParseMode.HTML)
+    chat_id = update.effective_chat.id
+    if chat_id not in bot_messages:
+        bot_messages[chat_id] = []
+    
+    reply = await update.message.reply_text(msg, parse_mode=ParseMode.HTML)
+    bot_messages[chat_id].append(reply.message_id)
 
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    
     try:
         await update.message.delete()
     except:
         pass
-    msg = await update.message.reply_text("🧹")
+    
+    if chat_id in bot_messages:
+        for msg_id in bot_messages[chat_id]:
+            try:
+                await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+            except:
+                pass
+        bot_messages[chat_id] = []
+    
+    status = await update.message.reply_text("🧹 Chat cleared")
     await asyncio.sleep(2)
-    await msg.delete()
+    try:
+        await status.delete()
+    except:
+        pass
 
 async def daily_news(bot):
     while True:
@@ -68,7 +99,10 @@ async def daily_news(bot):
             news = await fetch_news()
             for chat_id in chat_ids.copy():
                 try:
-                    await bot.send_message(chat_id=chat_id, text=news, parse_mode=ParseMode.HTML)
+                    msg = await bot.send_message(chat_id=chat_id, text=news, parse_mode=ParseMode.HTML)
+                    if chat_id not in bot_messages:
+                        bot_messages[chat_id] = []
+                    bot_messages[chat_id].append(msg.message_id)
                 except Exception as e:
                     logger.error(f"Failed to send to {chat_id}: {e}")
                     chat_ids.discard(chat_id)
