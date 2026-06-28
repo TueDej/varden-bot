@@ -69,7 +69,7 @@ async def food(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("جوجه کباب 🍢", callback_data="food_joojeh")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Choose your food:", reply_markup=reply_markup)
+    await update.message.reply_text("چی چی میخوی؟", reply_markup=reply_markup)
 
 async def food_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
