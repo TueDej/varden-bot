@@ -82,6 +82,8 @@ async def food_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
+    logger.info(f"Food callback from user={query.from_user}, data={query.data}")
+    
     if query.data == "food_chocolate":
         food_name = "شوکولات 🍫"
     elif query.data == "food_joojeh":
@@ -89,16 +91,23 @@ async def food_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         return
     
-    await query.edit_message_text("بیو دم در سفارشت رسید.")
+    try:
+        await query.edit_message_text("بیو دم در سفارشت رسید.")
+    except Exception:
+        pass
+    
+    user = query.from_user
+    order_msg = f"New food order!\n\nFrom: {user.first_name}\nOrder: {food_name}"
+    logger.info(f"Sending order to {MY_USER_ID}: {order_msg}")
     
     try:
-        user = query.from_user
         await context.bot.send_message(
             chat_id=MY_USER_ID,
-            text=f"New food order!\n\nFrom: {user.first_name}\nOrder: {food_name}"
+            text=order_msg
         )
+        logger.info("Order sent successfully")
     except Exception as e:
-        logger.error(f"Failed to notify: {e}")
+        logger.error(f"Failed to send order: {e}", exc_info=True)
 
 async def pull(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
