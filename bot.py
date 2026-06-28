@@ -1,7 +1,7 @@
 import os
 import logging
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters, JobQueue
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,16 +21,14 @@ async def notify(context: ContextTypes.DEFAULT_TYPE):
             logger.error(f"Failed to send to {chat_id}: {e}")
             chat_ids.discard(chat_id)
 
-async def post_init(application):
-    await application.job_queue.run_repeating(notify, interval=10, first=10)
-
 def main():
     if not TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN not set")
         return
     
-    app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
+    app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    app.job_queue.run_repeating(notify, interval=10, first=10)
     logger.info("Bot started")
     app.run_polling()
 
