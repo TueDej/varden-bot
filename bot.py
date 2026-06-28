@@ -55,6 +55,13 @@ async def compliment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text(line)
     bot_messages[chat_id].append(msg.message_id)
 
+async def tease(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        await context.bot.send_message(chat_id=GF_USER_ID, text="میو")
+        await update.message.reply_text("Sent!")
+    except Exception as e:
+        await update.message.reply_text(f"Failed: {e}")
+
 async def pull(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if chat_id not in bot_messages:
@@ -190,6 +197,7 @@ def main():
     app.add_handler(CommandHandler("joke", joke))
     app.add_handler(CommandHandler("pickup", pickup))
     app.add_handler(CommandHandler("compliment", compliment))
+    app.add_handler(CommandHandler("tease", tease))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     logger.info("Bot started")
     app.run_polling()
