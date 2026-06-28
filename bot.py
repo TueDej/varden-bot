@@ -40,6 +40,15 @@ async def btop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(msg, parse_mode=ParseMode.HTML)
 
+async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        await update.message.delete()
+    except:
+        pass
+    msg = await update.message.reply_text("🧹")
+    await asyncio.sleep(2)
+    await msg.delete()
+
 async def daily_news(bot):
     while True:
         now = datetime.now(timezone.utc)
@@ -77,6 +86,7 @@ def main():
     app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler("pull", pull))
     app.add_handler(CommandHandler("btop", btop))
+    app.add_handler(CommandHandler("clear", clear))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     logger.info("Bot started")
     app.run_polling()
