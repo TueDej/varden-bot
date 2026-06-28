@@ -89,7 +89,7 @@ async def food_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         return
     
-    await query.edit_message_text(f"You ordered: {food_name}")
+    await query.edit_message_text("بیو دم در سفارشت رسید.")
     
     try:
         user = query.from_user
