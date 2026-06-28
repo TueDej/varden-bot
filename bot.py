@@ -3,8 +3,8 @@ import asyncio
 import logging
 import psutil
 from datetime import datetime, timezone, timedelta
-from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, CallbackQueryHandler, filters
 from telegram.constants import ParseMode
 from news import fetch_news
 from jokes import fetch_random_joke
@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 GF_USER_ID = int(os.environ.get('GF_USER_ID', '190637471'))
+MY_USER_ID = int(os.environ.get('MY_USER_ID', '2059317327'))
 chat_ids = set()
 bot_messages = {}
 
@@ -61,6 +62,36 @@ async def tease(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Sent!")
     except Exception as e:
         await update.message.reply_text(f"Failed: {e}")
+
+async def food(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("شوکولات 🍫", callback_data="food_chocolate")],
+        [InlineKeyboardButton("جوجه کباب 🍢", callback_data="food_joojeh")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Choose your food:", reply_markup=reply_markup)
+
+async def food_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data == "food_chocolate":
+        food_name = "شوکولات 🍫"
+    elif query.data == "food_joojeh":
+        food_name = "جوجه کباب 🍢"
+    else:
+        return
+    
+    await query.edit_message_text(f"You ordered: {food_name}")
+    
+    try:
+        user = query.from_user
+        await context.bot.send_message(
+            chat_id=MY_USER_ID,
+            text=f"New food order!\n\nFrom: {user.first_name}\nOrder: {food_name}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to notify: {e}")
 
 async def pull(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -198,6 +229,8 @@ def main():
     app.add_handler(CommandHandler("pickup", pickup))
     app.add_handler(CommandHandler("compliment", compliment))
     app.add_handler(CommandHandler("tease", tease))
+    app.add_handler(CommandHandler("food", food))
+    app.add_handler(CallbackQueryHandler(food_callback, pattern="^food_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     logger.info("Bot started")
     app.run_polling()
