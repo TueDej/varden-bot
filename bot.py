@@ -3,7 +3,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
 from news import fetch_news
 
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +17,11 @@ TEHRAN_OFFSET = timedelta(hours=3, minutes=30)
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_ids.add(update.effective_chat.id)
     await update.message.reply_text(update.message.text)
+
+async def pull(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Fetching news...")
+    news = await fetch_news()
+    await update.message.reply_text(news)
 
 async def daily_news(bot):
     while True:
@@ -53,6 +58,7 @@ def main():
         return
     
     app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
+    app.add_handler(CommandHandler("pull", pull))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     logger.info("Bot started")
     app.run_polling()
