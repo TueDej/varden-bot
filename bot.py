@@ -71,12 +71,12 @@ async def food(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     kb = ReplyKeyboardMarkup(
-        [[KeyboardButton("/food")]],
+        [[KeyboardButton("گذا میخاممم!")]],
         resize_keyboard=True
     )
     
     await update.message.reply_text("چی چی میخوی؟", reply_markup=reply_markup)
-    await update.message.reply_text("Use the button below:", reply_markup=kb)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=".", reply_markup=kb)
 
 async def food_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -223,12 +223,23 @@ async def post_init(application):
     asyncio.create_task(daily_news(application.bot))
     asyncio.create_task(scheduled_pickups(application.bot))
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kb = ReplyKeyboardMarkup(
+        [[KeyboardButton("گذا میخاممم!")]],
+        resize_keyboard=True
+    )
+    await update.message.reply_text("Welcome! Use the button below:", reply_markup=kb)
+
+async def handle_food_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await food(update, context)
+
 def main():
     if not TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN not set")
         return
     
     app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("pull", pull))
     app.add_handler(CommandHandler("btop", btop))
     app.add_handler(CommandHandler("clear", clear))
@@ -238,6 +249,7 @@ def main():
     app.add_handler(CommandHandler("tease", tease))
     app.add_handler(CommandHandler("food", food))
     app.add_handler(CallbackQueryHandler(food_callback, pattern="^food_"))
+    app.add_handler(MessageHandler(filters.Text(["گذا میخاممم!"]), handle_food_button))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     logger.info("Bot started")
     app.run_polling()
