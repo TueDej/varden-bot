@@ -1,10 +1,30 @@
+"""
+Pickup Lines & Compliments Module
+==================================
+
+Provides two public coroutines that return random pickup lines or
+compliments.
+
+Each function first attempts to fetch from an external web API.  If the
+API is unreachable or returns an unexpected format, a curated local list
+is used as a fallback.
+
+Public API:
+    fetch_random_pickup_line()  — async, returns a pickup line string.
+    fetch_random_compliment()   — async, returns a compliment string.
+"""
+
 import random
 import logging
 import httpx
 
 logger = logging.getLogger(__name__)
 
-PICKUP_LINES = [
+# ---------------------------------------------------------------------------
+# Fallback data — local lists used when APIs are unavailable.
+# ---------------------------------------------------------------------------
+
+PICKUP_LINES: list[str] = [
     "Are you a magician? Because whenever I look at you, everyone else disappears.",
     "Do you have a map? Because I just got lost in your eyes.",
     "Are you a parking ticket? Because you've got 'fine' written all over you.",
@@ -27,7 +47,7 @@ PICKUP_LINES = [
     "Are you a volcano? Because I lava you.",
 ]
 
-COMPLIMENTS = [
+COMPLIMENTS: list[str] = [
     "You have the best laugh I've ever heard.",
     "Your eyes are incredible.",
     "You make the world a better place just by being in it.",
@@ -50,24 +70,61 @@ COMPLIMENTS = [
     "You make the ordinary extraordinary.",
 ]
 
+# API endpoints.
+_QUOTE_API_URL = "https://api.quotable.io/random?tags=love"
+_COMPLIMENT_API_URL = "https://complimentr.com/api"
+
+# HTTP timeout in seconds.
+_REQUEST_TIMEOUT = 10
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+
 async def fetch_random_pickup_line() -> str:
+    """
+    Return a random pickup line.
+
+    Attempts to fetch from the Quotable API (love-tagged quotes) first.
+    On failure, falls back to a random entry from ``PICKUP_LINES``.
+
+    Returns
+    -------
+    str
+        A pickup line string.
+    """
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get("https://api.quotable.io/random?tags=love")
+        async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT) as client:
+            resp = await client.get(_QUOTE_API_URL)
             if resp.status_code == 200:
                 data = resp.json()
                 return f'"{data["content"]}"\n— {data["author"]}'
     except Exception as e:
-        logger.warning(f"Quote API failed: {e}")
+        logger.warning("Quote API failed: %s", e)
+
     return random.choice(PICKUP_LINES)
 
+
 async def fetch_random_compliment() -> str:
+    """
+    Return a random compliment.
+
+    Attempts to fetch from the Complimentr API first.  On failure, falls
+    back to a random entry from ``COMPLIMENTS``.
+
+    Returns
+    -------
+    str
+        A compliment string.
+    """
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get("https://complimentr.com/api")
+        async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT) as client:
+            resp = await client.get(_COMPLIMENT_API_URL)
             if resp.status_code == 200:
                 data = resp.json()
                 return data["compliment"]
     except Exception as e:
-        logger.warning(f"Compliment API failed: {e}")
+        logger.warning("Compliment API failed: %s", e)
+
     return random.choice(COMPLIMENTS)

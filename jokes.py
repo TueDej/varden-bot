@@ -1,10 +1,28 @@
+"""
+Jokes Module
+============
+
+Provides a single public coroutine that returns a random joke.
+
+The primary source is the JokeAPI web service (pun and programming jokes
+in safe-mode).  If the API is unreachable or returns an unexpected format,
+a curated list of Persian jokes is used as a fallback.
+
+Public API:
+    fetch_random_joke() — async, returns a joke string.
+"""
+
 import random
 import logging
 import httpx
 
 logger = logging.getLogger(__name__)
 
-PERSIAN_JOKES = [
+# ---------------------------------------------------------------------------
+# Fallback data — Persian jokes used when the API is unavailable.
+# ---------------------------------------------------------------------------
+
+PERSIAN_JOKES: list[str] = [
     "یارو میره رستوران، سفارش میده غذا. غذا که میاد، میگه آقا این خیلی کمه! صاحب رستوران میگه آقا شما خیلی زیادی!",
     "یارو میره بانک میگه میخوام حساب باز کنم. میگن اسمتون؟ میگه فلانی. میگن شغلتون؟ میگه بیکار. میگن درآمدتون؟ میگه همون که گفتم بیکار!",
     "یارو به دوستش میگه دیروز رفتم بیرون خونه، دیدم هوا ابریه. برگشتم خونه، دیدم آفتابیه. یه ساعت بعد رفتم بیرون، دیدم بازم ابریه. فهمیدم خونه‌مون چرخ‌‌فریشه!",
@@ -27,16 +45,43 @@ PERSIAN_JOKES = [
     "یارو زنگ میزنه به دوستش، میگه من دیشب خواب دیدم دارم با تو حرف میزنم. دوستش میگه خب حرف زدیم؟ یارو میگه نه، من خواب بودم!",
 ]
 
+# JokeAPI endpoint — safe-mode filters out explicit content.
+_JOKE_API_URL = "https://v2.jokeapi.dev/joke/Pun,Programming?safe-mode"
+
+# HTTP timeout in seconds.
+_REQUEST_TIMEOUT = 10
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+
 async def fetch_random_joke() -> str:
+    """
+    Return a random joke.
+
+    Attempts to fetch from JokeAPI first.  Supports both ``single`` and
+    ``twopart`` joke types.  On any failure (network, parse, unexpected
+    format) falls back to a random Persian joke from the local list.
+
+    Returns
+    -------
+    str
+        A joke string ready to be sent as a Telegram message.
+    """
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get("https://v2.jokeapi.dev/joke/Pun,Programming?safe-mode")
+        async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT) as client:
+            resp = await client.get(_JOKE_API_URL)
             if resp.status_code == 200:
                 data = resp.json()
-                if data.get("type") == "single":
+                joke_type = data.get("type")
+
+                if joke_type == "single":
                     return data["joke"]
-                elif data.get("type") == "twopart":
+                elif joke_type == "twopart":
                     return f'{data["setup"]}\n\n{data["delivery"]}'
     except Exception as e:
-        logger.warning(f"JokeAPI failed: {e}")
+        logger.warning("JokeAPI failed: %s", e)
+
+    # Fallback to local Persian jokes.
     return random.choice(PERSIAN_JOKES)
