@@ -18,9 +18,13 @@ import asyncio
 import html
 import re
 import logging
+from io import BytesIO
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
+
+# Timeout in seconds for fetching a single feed.
+_FEED_TIMEOUT = 15
 
 # ---------------------------------------------------------------------------
 # Feed configuration
@@ -69,12 +73,22 @@ async def _fetch_feed(name: str, url: str) -> list[tuple[str, str, str, str]]:
     Parse a single RSS/Atom feed and return up to ``_MAX_ENTRIES_PER_FEED``
     items as ``(source_name, title, summary, link)`` tuples.
 
-    Returns an empty list on any error so that one bad feed doesn't break
-    the entire digest.
+    Uses httpx with a timeout to fetch the feed content, then parses it
+    with feedparser.  Returns an empty list on any error so that one bad
+    feed doesn't break the entire digest.
     """
     try:
-        # feedparser is synchronous; run it in a thread to avoid blocking.
-        feed = await asyncio.to_thread(feedparser.parse, url)
+        import httpx
+
+        async with httpx.AsyncClient(timeout=_FEED_TIMEOUT) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+
+        # feedparser expects a file-like object; wrap the raw bytes.
+        feed = await asyncio.to_thread(
+            feedparser.parse, BytesIO(resp.content)
+        )
+
         results = []
         for entry in feed.entries[:_MAX_ENTRIES_PER_FEED]:
             title = entry.get("title", "No title")
