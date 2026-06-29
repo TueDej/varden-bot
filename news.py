@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 RSS_FEEDS = {
     "Void Linux": "https://voidlinux.org/atom.xml",
     "Phoronix": "https://www.phoronix.com/rss.php",
-    "Linux Journal": "https://www.linuxjournal.com/feed",
+    "OMG! Ubuntu": "https://www.omgubuntu.co.uk/feed",
     "Tom's Hardware": "https://www.tomshardware.com/feeds/all",
     "Ars Technica": "https://feeds.arstechnica.com/arstechnica/index",
 }
@@ -18,6 +18,9 @@ RSS_FEEDS = {
 def _strip_html(text: str) -> str:
     text = html.unescape(text)
     return re.sub(r"<[^>]+>", "", text)
+
+def _escape_html(text: str) -> str:
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 async def _fetch_feed(name: str, url: str) -> list[tuple[str, str, str, str]]:
     try:
@@ -45,7 +48,7 @@ async def fetch_news() -> str:
     
     message = header
     for i, (source, title, summary, link) in enumerate(items, 1):
-        message += f"{i}. <b>[{source}] {title}</b>\n"
+        message += f"{i}. <b>[{_escape_html(source)}] {_escape_html(title)}</b>\n"
         if len(summary) > 300:
             message += f"{summary[:300]}...\n"
         else:

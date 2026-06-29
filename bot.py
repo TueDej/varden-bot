@@ -76,7 +76,7 @@ async def food(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     await update.message.reply_text("چی چی میخوی؟", reply_markup=reply_markup)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=" ", reply_markup=kb)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="\u200B", reply_markup=kb)
 
 async def food_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -97,7 +97,8 @@ async def food_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
     
     user = query.from_user
-    order_msg = f"New food order!\n\nFrom: {user.first_name}\nOrder: {food_name}"
+    name = user.first_name or user.username or "Someone"
+    order_msg = f"New food order!\n\nFrom: {name}\nOrder: {food_name}"
     logger.info(f"Sending order to {MY_USER_ID}: {order_msg}")
     
     try:
@@ -231,6 +232,17 @@ async def scheduled_pickups(bot):
 async def post_init(application):
     asyncio.create_task(daily_news(application.bot))
     asyncio.create_task(scheduled_pickups(application.bot))
+    asyncio.create_task(cleanup_stale())
+
+async def cleanup_stale():
+    while True:
+        await asyncio.sleep(3600)
+        stale = [cid for cid in chat_ids if cid not in bot_messages]
+        for cid in stale:
+            chat_ids.discard(cid)
+        stale_msgs = [cid for cid, msgs in bot_messages.items() if not msgs]
+        for cid in stale_msgs:
+            del bot_messages[cid]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = ReplyKeyboardMarkup(

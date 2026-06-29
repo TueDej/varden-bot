@@ -1,3 +1,4 @@
 python-telegram-bot==20.0
 feedparser==6.0.11
 psutil==5.9.8
+httpx==0.23.1
