@@ -45,6 +45,7 @@ from telegram.constants import ParseMode
 from news import fetch_news
 from jokes import fetch_random_joke
 from pickup import fetch_random_pickup_line, fetch_random_compliment
+from roasts import fetch_random_roast
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -159,6 +160,14 @@ async def compliment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     """Send a random compliment."""
     chat_id = update.effective_chat.id
     line = await fetch_random_compliment()
+    msg = await update.message.reply_text(line)
+    _track_message(chat_id, msg.message_id)
+
+
+async def roast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a random playful roast."""
+    chat_id = update.effective_chat.id
+    line = await fetch_random_roast()
     msg = await update.message.reply_text(line)
     _track_message(chat_id, msg.message_id)
 
@@ -444,6 +453,7 @@ def main() -> None:
     app.add_handler(CommandHandler("joke", joke))
     app.add_handler(CommandHandler("pickup", pickup))
     app.add_handler(CommandHandler("compliment", compliment))
+    app.add_handler(CommandHandler("roast", roast))
     app.add_handler(CommandHandler("tease", tease))
     app.add_handler(CommandHandler("food", food))
 
