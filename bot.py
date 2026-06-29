@@ -73,6 +73,17 @@ chat_ids: set[int] = set()
 # Used by /clear to delete bot messages in bulk.
 bot_messages: dict[int, list[int]] = {}
 
+# Chats where the bot is waiting for the user to type a custom order.
+_chats_awaiting_custom_order: set[int] = set()
+
+
+class _AwaitingCustomOrder(filters.MessageFilter):
+    """Pass only for chats that are expecting a custom order message."""
+
+    def filter(self, message):
+        return message.chat_id in _chats_awaiting_custom_order
+
+
 # Tehran is UTC+3:30 with no daylight saving.
 TEHRAN_OFFSET = timedelta(hours=3, minutes=30)
 
@@ -186,9 +197,12 @@ async def food(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     Present an inline keyboard with food choices and set the persistent
     reply keyboard so the user can re-trigger this menu with one tap.
     """
+    _chats_awaiting_custom_order.discard(update.effective_chat.id)
+
     keyboard = [
         [InlineKeyboardButton("شوکولات 🍫", callback_data="food_chocolate")],
         [InlineKeyboardButton("جوجه کباب 🍢", callback_data="food_joojeh")],
+        [InlineKeyboardButton("یه چی دیگه ✍️", callback_data="food_custom")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -228,6 +242,15 @@ async def food_callback(
 
     logger.info("Food callback from user=%s, data=%s", query.from_user, query.data)
 
+    # "یه چی دیگه" — ask the user to type their own order.
+    if query.data == "food_custom":
+        _chats_awaiting_custom_order.add(query.message.chat_id)
+        try:
+            await query.edit_message_text("خودت بنویس چی میخوای 👇")
+        except Exception:
+            pass
+        return
+
     # Map callback data to a display name.
     FOOD_MAP = {
         "food_chocolate": "شوکولات 🍫",
@@ -255,6 +278,35 @@ async def food_callback(
         logger.info("Order sent successfully")
     except Exception as e:
         logger.error("Failed to send order: %s", e, exc_info=True)
+
+
+async def handle_custom_order(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """
+    Process a user-typed custom food order.
+
+    Triggered when a chat is in ``_chats_awaiting_custom_order``.  Sends a
+    confirmation to the user and forwards the order to ``MY_USER_ID``.
+    """
+    chat_id = update.effective_chat.id
+    _chats_awaiting_custom_order.discard(chat_id)
+    chat_ids.add(chat_id)
+
+    custom_text = update.message.text
+
+    msg = await update.message.reply_text("بیو دم در سفارشت رسید.")
+    _track_message(chat_id, msg.message_id)
+
+    user = update.effective_user
+    name = user.first_name or user.username or "Someone"
+    order_msg = f"New food order!\n\nFrom: {name}\nOrder: {custom_text}"
+    logger.info("Sending custom order to %s: %s", MY_USER_ID, order_msg)
+
+    try:
+        await context.bot.send_message(chat_id=MY_USER_ID, text=order_msg)
+    except Exception as e:
+        logger.error("Failed to send custom order: %s", e, exc_info=True)
 
 
 async def pull(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -463,6 +515,13 @@ def main() -> None:
     # Persistent keyboard button → delegate to food handler.
     app.add_handler(
         MessageHandler(filters.Text(["گذا میخاممم!"]), handle_food_button)
+    )
+
+    # Custom food order text input (must be before echo catch-all).
+    app.add_handler(
+        MessageHandler(
+            _AwaitingCustomOrder() & ~filters.COMMAND, handle_custom_order
+        )
     )
 
     # Catch-all for plain text (must be last).
