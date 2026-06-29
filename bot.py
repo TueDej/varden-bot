@@ -273,8 +273,20 @@ async def food_callback(
     order_msg = f"New food order!\n\nFrom: {name}\nOrder: {food_name}"
     logger.info("Sending order to %s: %s", MY_USER_ID, order_msg)
 
+    confirm_kb = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "ثبت شد! ✅",
+                    callback_data=f"confirm_{query.message.chat_id}",
+                )
+            ]
+        ]
+    )
     try:
-        await context.bot.send_message(chat_id=MY_USER_ID, text=order_msg)
+        await context.bot.send_message(
+            chat_id=MY_USER_ID, text=order_msg, reply_markup=confirm_kb
+        )
         logger.info("Order sent successfully")
     except Exception as e:
         logger.error("Failed to send order: %s", e, exc_info=True)
@@ -303,10 +315,50 @@ async def handle_custom_order(
     order_msg = f"New food order!\n\nFrom: {name}\nOrder: {custom_text}"
     logger.info("Sending custom order to %s: %s", MY_USER_ID, order_msg)
 
+    confirm_kb = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "ثبت شد! ✅",
+                    callback_data=f"confirm_{chat_id}",
+                )
+            ]
+        ]
+    )
     try:
-        await context.bot.send_message(chat_id=MY_USER_ID, text=order_msg)
+        await context.bot.send_message(
+            chat_id=MY_USER_ID, text=order_msg, reply_markup=confirm_kb
+        )
     except Exception as e:
         logger.error("Failed to send custom order: %s", e, exc_info=True)
+
+
+async def confirm_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """
+    Handle the 'ثبت شد!' button on order messages sent to MY_USER_ID.
+
+    Notifies the original user that their order has been confirmed, then
+    removes the button so it can't be clicked twice.
+    """
+    query = update.callback_query
+    await query.answer()
+
+    chat_id_str = query.data.removeprefix("confirm_")
+    try:
+        chat_id_int = int(chat_id_str)
+    except ValueError:
+        return
+
+    try:
+        await context.bot.send_message(
+            chat_id=chat_id_int,
+            text="اوستا سفارش رو ثبت کرد. باقی‌ش دیگه دست خداس.",
+        )
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception as e:
+        logger.error("Failed to confirm order: %s", e, exc_info=True)
 
 
 async def pull(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -511,6 +563,9 @@ def main() -> None:
 
     # Inline keyboard callback for food orders.
     app.add_handler(CallbackQueryHandler(food_callback, pattern="^food_"))
+
+    # Inline keyboard callback for order confirmation ("ثبت شد!").
+    app.add_handler(CallbackQueryHandler(confirm_callback, pattern="^confirm_"))
 
     # Persistent keyboard button → delegate to food handler.
     app.add_handler(
