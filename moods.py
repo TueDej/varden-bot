@@ -43,7 +43,7 @@ def get_summary() -> str:
 
     counter: Counter = Counter()
     total = 0
-    happy_count = 0
+    positive_count = 0
 
     for date_str in date_strs:
         path = _file_path(date_str)
@@ -60,8 +60,8 @@ def get_summary() -> str:
                         mood = entry.get("mood", "")
                         counter[mood] += 1
                         total += 1
-                        if mood == "خوشحالم":
-                            happy_count += 1
+                        if mood == "پرانرژی":
+                            positive_count += 1
                     except json.JSONDecodeError:
                         pass
         except Exception as e:
@@ -72,14 +72,14 @@ def get_summary() -> str:
 
     dominant = counter.most_common(1)[0][0]
     today = date_strs[0]
-    today_count = counter.get("خوشحالم", 0)
+    today_count = counter.get("پرانرژی", 0)
 
     parts = [
         f"📅 خلاصه ۷ روز گذشته",
         f"تعداد کل: {total}",
-        f"خوشحالم: {happy_count}",
+        f"پرانرژی: {positive_count}",
         f"مزیت غالب: {dominant}",
     ]
     if today_count > 0:
-        parts.append(f"امروز ({today}) خوشحال بودی {today_count} بار 🇮🇷")
+        parts.append(f"امروز ({today}) پرانرژی بودی {today_count} بار ⚡")
     return "\n".join(parts)

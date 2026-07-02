@@ -195,11 +195,11 @@ async def mood_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     keyboard = [
-        [InlineKeyboardButton("خوشحالم 🟢", callback_data="mood_خوشحالم")],
-        [InlineKeyboardButton("عادی 🟡", callback_data="mood_عادی")],
+        [InlineKeyboardButton("پرانرژی 🟢", callback_data="mood_پرانرژی")],
+        [InlineKeyboardButton("موج 🟡", callback_data="mood_موج")],
         [InlineKeyboardButton("خسته 🔵", callback_data="mood_خسته")],
-        [InlineKeyboardButton("ناراحت 🟠", callback_data="mood_ناراحت")],
-        [InlineKeyboardButton("عاشق 🔴", callback_data="mood_عاشق")],
+        [InlineKeyboardButton("ناامید 🟠", callback_data="mood_ناامید")],
+        [InlineKeyboardButton("آتش 🔴", callback_data="mood_آتش")],
         [InlineKeyboardButton("خلاصه 📊", callback_data="mood_summary")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
