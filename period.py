@@ -1,13 +1,42 @@
 import json
 import os
+import logging
 from datetime import datetime, timedelta
 
 PERIODS_DIR = "periods"
 PERIODS_FILE = os.path.join(PERIODS_DIR, "periods.json")
+SYMPTOMS_DIR = os.path.join(PERIODS_DIR, "symptoms")
 
+logger = logging.getLogger(__name__)
 
-def _ensure_periods_dir() -> None:
-    os.makedirs(PERIODS_DIR, exist_ok=True)
+SYMPTOM_OPTIONS = [
+    "درد شکم/کمر 😣",
+    "خستگی 😴",
+    "بیحوالی 😐",
+    "خشم 😠",
+    "غم/افسردگی 😔",
+    "میل به شیرین/نمکی 🍫",
+    "پف 🎈",
+    "سر درد 🤕",
+    "مشکل خواب 🌙",
+    "بی‌کقراری 😰",
+]
+
+# Generate stable callback IDs for symptoms
+SYMBOL_MAP = {
+    "درد شکم/کمر 😣": "pain",
+    "خستگی 😴": "fatigue",
+    "بیحوالی 😐": "apathy",
+    "خشم 😠": "anger",
+    "غم/افسردگی 😔": "sadness",
+    "میل به شیرین/نمکی 🍫": "sugar",
+    "پف 🎈": "bloating",
+    "سر درد 🤕": "headache",
+    "مشکل خواب 🌙": "sleep",
+    "بی‌کقراری 😰": "anxiety",
+}
+
+SYMBOL_TO_OPTION = {v: k for k, v in SYMBOL_MAP.items()}
 
 
 def save_period(date_str: str) -> None:
@@ -28,6 +57,43 @@ def save_period(date_str: str) -> None:
 
     with open(PERIODS_FILE, "w", encoding="utf-8") as f:
         json.dump(entries, f, ensure_ascii=False, indent=2)
+
+
+def toggle_symptom(date_str: str, symptom: str) -> list[str]:
+    _ensure_symptoms_dir()
+    path = _symptoms_file(date_str)
+    symptoms = []
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                symptoms = json.load(f)
+        except Exception:
+            symptoms = []
+
+    if symptom in symptoms:
+        symptoms.remove(symptom)
+    else:
+        symptoms.append(symptom)
+
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(symptoms, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error("Failed to save symptoms: %s", e)
+        raise
+
+    return symptoms
+
+
+def get_symptoms(date_str: str) -> list[str]:
+    path = _symptoms_file(date_str)
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
 
 
 def get_summary() -> str:

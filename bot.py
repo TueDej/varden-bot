@@ -47,7 +47,7 @@ from jokes import fetch_random_joke
 from pickup import fetch_random_pickup_line, fetch_random_compliment
 from roasts import fetch_random_roast
 from moods import save_mood, get_summary
-from period import save_period, get_summary as get_period_summary
+from period import save_period, get_summary as get_period_summary, toggle_symptom, get_symptoms, SYMPTOM_OPTIONS
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -296,8 +296,53 @@ async def period_callback(
         return
 
     if data == "period_mood":
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        symptoms = get_symptoms(today_str)
+
+        rows = []
+        for i in range(0, len(SYMPTOM_OPTIONS), 2):
+            row = []
+            for j in range(2):
+                if i + j < len(SYMPTOM_OPTIONS):
+                    option = SYMPTOM_OPTIONS[i + j]
+                    checked = "✅ " if option in symptoms else ""
+                    row.append(InlineKeyboardButton(f"{checked}{option}", callback_data=f"period_symptom_{option.replace(' ', '_').replace('🎈', 'pea').replace('😣', 'pain').replace('🍫', 'sugar').replace('🧠', 'brain')}"))
+            rows.append(row)
+
+        rows.append([InlineKeyboardButton("ثبت شد! ✅", callback_data="period_mood_save")])
+        reply_markup = InlineKeyboardMarkup(rows)
         try:
-            await query.edit_message_text("به زودی 🤍")
+            await query.edit_message_text("علائم امروز رو انتخاب کن:", reply_markup=reply_markup)
+        except Exception:
+            await context.bot.send_message(chat_id=query.message.chat_id, text="علائم امروز رو انتخاب کن:", reply_markup=reply_markup)
+        return
+
+    if data.startswith("period_symptom_"):
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        symptom_option = data.removeprefix("period_symptom_")
+        # Restore special characters
+        symptom_option = symptom_option.replace("_pain", "😣").replace("_", " ").replace("pea", "🎈").replace("sugar", "🍫").replace("brain", "🧠")
+        try:
+            toggled = toggle_symptom(today_str, symptom_option)
+        except Exception:
+            toggled = []
+        
+        # Recreate the keyboard
+        symptoms = toggled
+        rows = []
+        for i in range(0, len(SYMPTOM_OPTIONS), 2):
+            row = []
+            for j in range(2):
+                if i + j < len(SYMPTOM_OPTIONS):
+                    option = SYMPTOM_OPTIONS[i + j]
+                    checked = "✅ " if option in symptoms else ""
+                    row.append(InlineKeyboardButton(f"{checked}{option}", callback_data=f"period_symptom_{option.replace(' ', '_').replace('🎈', 'pea').replace('😣', 'pain').replace('🍫', 'sugar').replace('🧠', 'brain')}"))
+            rows.append(row)
+
+        rows.append([InlineKeyboardButton("ثبت شد! ✅", callback_data="period_mood_save")])
+        reply_markup = InlineKeyboardMarkup(rows)
+        try:
+            await query.edit_message_text("علائم امروز رو انتخاب کن:", reply_markup=reply_markup)
         except Exception:
             pass
         return
