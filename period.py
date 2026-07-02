@@ -9,34 +9,36 @@ SYMPTOMS_DIR = os.path.join(PERIODS_DIR, "symptoms")
 
 logger = logging.getLogger(__name__)
 
+# Stable English IDs paired with display names.  Callback data uses the ID;
+# the display name is shown to the user.
 SYMPTOM_OPTIONS = [
-    "درد شکم/کمر 😣",
-    "خستگی 😴",
-    "بیحوالی 😐",
-    "خشم 😠",
-    "غم/افسردگی 😔",
-    "میل به شیرین/نمکی 🍫",
-    "پف 🎈",
-    "سر درد 🤕",
-    "مشکل خواب 🌙",
-    "بی‌کقراری 😰",
+    ("pain", "درد شکم/کمر 😣"),
+    ("fatigue", "خستگی 😴"),
+    ("apathy", "بیحوالی 😐"),
+    ("anger", "خشم 😠"),
+    ("sadness", "غم/افسردگی 😔"),
+    ("sugar", "میل به شیرین/نمکی 🍫"),
+    ("bloating", "پف 🎈"),
+    ("headache", "سر درد 🤕"),
+    ("sleep", "مشکل خواب 🌙"),
+    ("anxiety", "بی‌کقراری 😰"),
 ]
 
-# Generate stable callback IDs for symptoms
-SYMBOL_MAP = {
-    "درد شکم/کمر 😣": "pain",
-    "خستگی 😴": "fatigue",
-    "بیحوالی 😐": "apathy",
-    "خشم 😠": "anger",
-    "غم/افسردگی 😔": "sadness",
-    "میل به شیرین/نمکی 🍫": "sugar",
-    "پف 🎈": "bloating",
-    "سر درد 🤕": "headache",
-    "مشکل خواب 🌙": "sleep",
-    "بی‌کقراری 😰": "anxiety",
-}
+SYMPTOM_IDS = {sid: display for sid, display in SYMPTOM_OPTIONS}
+SYMPTOM_DISPLAY = {display: sid for sid, display in SYMPTOM_OPTIONS}
 
-SYMBOL_TO_OPTION = {v: k for k, v in SYMBOL_MAP.items()}
+
+def _ensure_periods_dir() -> None:
+    os.makedirs(PERIODS_DIR, exist_ok=True)
+
+
+def _ensure_symptoms_dir() -> None:
+    os.makedirs(SYMPTOMS_DIR, exist_ok=True)
+
+
+def _symptoms_file(date_str: str) -> str:
+    safe = date_str.replace("/", "-")
+    return os.path.join(SYMPTOMS_DIR, f"{safe}.json")
 
 
 def save_period(date_str: str) -> None:

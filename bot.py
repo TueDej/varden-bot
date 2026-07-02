@@ -47,7 +47,7 @@ from jokes import fetch_random_joke
 from pickup import fetch_random_pickup_line, fetch_random_compliment
 from roasts import fetch_random_roast
 from moods import save_mood, get_summary
-from period import save_period, get_summary as get_period_summary, toggle_symptom, get_symptoms, SYMPTOM_OPTIONS
+from period import save_period, get_summary as get_period_summary, toggle_symptom, get_symptoms, SYMPTOM_IDS, SYMPTOM_OPTIONS
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -304,9 +304,9 @@ async def period_callback(
             row = []
             for j in range(2):
                 if i + j < len(SYMPTOM_OPTIONS):
-                    option = SYMPTOM_OPTIONS[i + j]
-                    checked = "✅ " if option in symptoms else ""
-                    row.append(InlineKeyboardButton(f"{checked}{option}", callback_data=f"period_symptom_{option.replace(' ', '_').replace('🎈', 'pea').replace('😣', 'pain').replace('🍫', 'sugar').replace('🧠', 'brain')}"))
+                    sid, display = SYMPTOM_OPTIONS[i + j]
+                    checked = "✅ " if sid in symptoms else ""
+                    row.append(InlineKeyboardButton(f"{checked}{display}", callback_data=f"period_symptom_{sid}"))
             rows.append(row)
 
         rows.append([InlineKeyboardButton("ثبت شد! ✅", callback_data="period_mood_save")])
@@ -319,30 +319,36 @@ async def period_callback(
 
     if data.startswith("period_symptom_"):
         today_str = datetime.now().strftime("%Y-%m-%d")
-        symptom_option = data.removeprefix("period_symptom_")
-        # Restore special characters
-        symptom_option = symptom_option.replace("_pain", "😣").replace("_", " ").replace("pea", "🎈").replace("sugar", "🍫").replace("brain", "🧠")
+        sid = data.removeprefix("period_symptom_")
+        if sid not in SYMPTOM_IDS:
+            return
         try:
-            toggled = toggle_symptom(today_str, symptom_option)
+            toggled = toggle_symptom(today_str, sid)
         except Exception:
             toggled = []
-        
-        # Recreate the keyboard
+
         symptoms = toggled
         rows = []
         for i in range(0, len(SYMPTOM_OPTIONS), 2):
             row = []
             for j in range(2):
                 if i + j < len(SYMPTOM_OPTIONS):
-                    option = SYMPTOM_OPTIONS[i + j]
-                    checked = "✅ " if option in symptoms else ""
-                    row.append(InlineKeyboardButton(f"{checked}{option}", callback_data=f"period_symptom_{option.replace(' ', '_').replace('🎈', 'pea').replace('😣', 'pain').replace('🍫', 'sugar').replace('🧠', 'brain')}"))
+                    opt_id, display = SYMPTOM_OPTIONS[i + j]
+                    checked = "✅ " if opt_id in symptoms else ""
+                    row.append(InlineKeyboardButton(f"{checked}{display}", callback_data=f"period_symptom_{opt_id}"))
             rows.append(row)
 
         rows.append([InlineKeyboardButton("ثبت شد! ✅", callback_data="period_mood_save")])
         reply_markup = InlineKeyboardMarkup(rows)
         try:
             await query.edit_message_text("علائم امروز رو انتخاب کن:", reply_markup=reply_markup)
+        except Exception:
+            pass
+        return
+
+    if data == "period_mood_save":
+        try:
+            await query.edit_message_text("علائم ثبت شد ✅")
         except Exception:
             pass
         return
