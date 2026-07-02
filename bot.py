@@ -185,7 +185,7 @@ async def roast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def mood_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_user.id != GF_USER_ID:
+    if update.effective_user.id not in (GF_USER_ID, MY_USER_ID):
         await update.message.reply_text("فقط برای دوست خاصم 😼")
         return
 
@@ -212,7 +212,7 @@ async def mood_callback(
     query = update.callback_query
     await query.answer()
 
-    if query.from_user.id != GF_USER_ID:
+    if query.from_user.id not in (GF_USER_ID, MY_USER_ID):
         try:
             await query.edit_message_text("فقط برای دوست خاصم 😼")
         except Exception:
