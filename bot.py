@@ -47,6 +47,7 @@ from jokes import fetch_random_joke
 from pickup import fetch_random_pickup_line, fetch_random_compliment
 from roasts import fetch_random_roast
 from moods import save_mood, get_summary
+from period import save_period, get_summary as get_period_summary
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -246,6 +247,60 @@ async def mood_callback(
         await query.edit_message_text(f"ثبت شد: {mood}")
     except Exception:
         pass
+
+
+async def period_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_user.id not in (GF_USER_ID, MY_USER_ID):
+        await update.message.reply_text("فقط برای دوست خاصم 😼")
+        return
+
+    keyboard = [
+        [InlineKeyboardButton("شروع پریود (امروز) 📅", callback_data="period_today")],
+        [InlineKeyboardButton("علائم و خلق و خو 🧠", callback_data="period_mood")],
+        [InlineKeyboardButton("خلاصه 📊", callback_data="period_summary")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("بوم پریود؟", reply_markup=reply_markup)
+
+
+async def period_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    if query.from_user.id not in (GF_USER_ID, MY_USER_ID):
+        try:
+            await query.edit_message_text("فقط برای دوست خاصم 😼")
+        except Exception:
+            pass
+        return
+
+    data = query.data
+
+    if data == "period_today":
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        save_period(today_str)
+        try:
+            await query.edit_message_text("ثبت شد.")
+        except Exception:
+            pass
+        return
+
+    if data == "period_summary":
+        summary = get_period_summary()
+        try:
+            await query.edit_message_text(summary)
+        except Exception:
+            await context.bot.send_message(chat_id=query.message.chat_id, text=summary)
+        return
+
+    if data == "period_mood":
+        try:
+            await query.edit_message_text("به زودی 🤍")
+        except Exception:
+            pass
+        return
 
 
 async def tease(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -626,6 +681,7 @@ def main() -> None:
     app.add_handler(CommandHandler("tease", tease))
     app.add_handler(CommandHandler("food", food))
     app.add_handler(CommandHandler("mood", mood_command))
+    app.add_handler(CommandHandler("period", period_command))
 
     # Inline keyboard callback for food orders.
     app.add_handler(CallbackQueryHandler(food_callback, pattern="^food_"))
@@ -635,6 +691,9 @@ def main() -> None:
 
     # Inline keyboard callback for mood logging.
     app.add_handler(CallbackQueryHandler(mood_callback, pattern="^mood_"))
+
+    # Inline keyboard callback for period tracking.
+    app.add_handler(CallbackQueryHandler(period_callback, pattern="^period_"))
 
     # Persistent keyboard button → delegate to food handler.
     app.add_handler(
