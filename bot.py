@@ -492,7 +492,7 @@ async def scheduled_pickups(bot) -> None:
         try:
             line = await fetch_random_pickup_line()
             await bot.send_message(
-                chat_id=GF_USER_ID, text=f"Hey beautiful! {line}"
+                chat_id=GF_USER_ID, text=line
             )
 
             # Wait one minute between the pickup line and the compliment
