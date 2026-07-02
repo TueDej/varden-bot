@@ -46,6 +46,7 @@ from news import fetch_news
 from jokes import fetch_random_joke
 from pickup import fetch_random_pickup_line, fetch_random_compliment
 from roasts import fetch_random_roast
+from moods import save_mood, get_summary
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -181,6 +182,70 @@ async def roast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     line = await fetch_random_roast()
     msg = await update.message.reply_text(line)
     _track_message(chat_id, msg.message_id)
+
+
+async def mood_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_user.id != GF_USER_ID:
+        await update.message.reply_text("فقط برای دوست خاصم 😼")
+        return
+
+    if context.args and context.args[0] == "summary":
+        summary = get_summary()
+        await update.message.reply_text(summary)
+        return
+
+    keyboard = [
+        [InlineKeyboardButton("خوشحالم 🟢", callback_data="mood_خوشحالم")],
+        [InlineKeyboardButton("عادی 🟡", callback_data="mood_عادی")],
+        [InlineKeyboardButton("خسته 🔵", callback_data="mood_خسته")],
+        [InlineKeyboardButton("ناراحت 🟠", callback_data="mood_ناراحت")],
+        [InlineKeyboardButton("عاشق 🔴", callback_data="mood_عاشق")],
+        [InlineKeyboardButton("خلاصه 📊", callback_data="mood_summary")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("حالیت چطوره؟", reply_markup=reply_markup)
+
+
+async def mood_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    if query.from_user.id != GF_USER_ID:
+        try:
+            await query.edit_message_text("فقط برای دوست خاصم 😼")
+        except Exception:
+            pass
+        return
+
+    data = query.data
+
+    if data == "mood_summary":
+        summary = get_summary()
+        try:
+            await query.edit_message_text(summary)
+        except Exception:
+            await context.bot.send_message(chat_id=query.message.chat_id, text=summary)
+        return
+
+    mood = data.removeprefix("mood_")
+    if not mood:
+        return
+
+    try:
+        save_mood(mood)
+    except Exception:
+        try:
+            await query.edit_message_text("کمی بعد امتحان کن")
+        except Exception:
+            pass
+        return
+
+    try:
+        await query.edit_message_text(f"ثبت شد: {mood}")
+    except Exception:
+        pass
 
 
 async def tease(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -560,12 +625,16 @@ def main() -> None:
     app.add_handler(CommandHandler("roast", roast))
     app.add_handler(CommandHandler("tease", tease))
     app.add_handler(CommandHandler("food", food))
+    app.add_handler(CommandHandler("mood", mood_command))
 
     # Inline keyboard callback for food orders.
     app.add_handler(CallbackQueryHandler(food_callback, pattern="^food_"))
 
     # Inline keyboard callback for order confirmation ("ثبت شد!").
     app.add_handler(CallbackQueryHandler(confirm_callback, pattern="^confirm_"))
+
+    # Inline keyboard callback for mood logging.
+    app.add_handler(CallbackQueryHandler(mood_callback, pattern="^mood_"))
 
     # Persistent keyboard button → delegate to food handler.
     app.add_handler(
