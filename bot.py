@@ -197,6 +197,9 @@ async def compliment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 async def tease(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a 'میو' message to the configured GF user."""
+    if update.effective_user.id != MY_USER_ID:
+        await update.message.reply_text("فقط خودم اجازه دارم میو بفرستم 😼")
+        return
     try:
         await context.bot.send_message(chat_id=GF_USER_ID, text="میو")
         await update.message.reply_text("Sent!")
