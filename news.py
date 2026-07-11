@@ -45,7 +45,7 @@ _MAX_ENTRIES_PER_FEED = 3
 _MAX_MESSAGE_LENGTH = 4090
 
 # Summaries longer than this are truncated with an ellipsis.
-_SUMMARY_CHAR_LIMIT = 300
+_SUMMARY_CHAR_LIMIT = 180
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -111,42 +111,47 @@ async def fetch_news() -> str:
     Fetch news from all configured RSS feeds concurrently, then format the
     results into an HTML string suitable for ``parse_mode=ParseMode.HTML``.
 
+    The digest is grouped by source, with a header divider and compact entry
+    layout.  Truncated to ``_MAX_MESSAGE_LENGTH`` characters to stay within
+    Telegram's per-message limit.
+
     Returns
     -------
     str
-        A formatted digest beginning with a header line, followed by numbered
-        news items.  Truncated to ``_MAX_MESSAGE_LENGTH`` characters to stay
-        within Telegram's per-message limit.
+        A formatted digest beginning with a header line, followed by
+        source-grouped news items.
     """
     today = datetime.now(timezone.utc).strftime("%B %d, %Y")
-    header = f"📰 Linux & Hardware News - {today}\n\n"
+    header = f"📰 <b>Linux & Hardware News</b>\n📅 {today}\n\n"
 
     # Fetch all feeds concurrently.
     all_results = await asyncio.gather(
         *[_fetch_feed(name, url) for name, url in RSS_FEEDS.items()]
     )
 
-    # Flatten the list of lists into a single list of tuples.
-    items = [item for group in all_results for item in group]
+    # Preserve feed order; drop feeds that returned nothing.
+    groups = [
+        (name, results) for (name, _), results in zip(RSS_FEEDS.items(), all_results)
+        if results
+    ]
 
-    if not items:
+    if not groups:
         return header + "No news available today."
 
-    # Build the formatted message.
+    # Build the formatted message, grouped by source.
     message = header
-    for i, (source, title, summary, link) in enumerate(items, 1):
-        # Escape source and title for safe HTML rendering.
-        message += (
-            f"{i}. <b>[{_escape_html(source)}] {_escape_html(title)}</b>\n"
-        )
-
-        # Truncate long summaries.
-        if len(summary) > _SUMMARY_CHAR_LIMIT:
-            message += f"{summary[:_SUMMARY_CHAR_LIMIT]}...\n"
-        else:
-            message += f"{summary}\n"
-
-        message += f"🔗 {link}\n\n"
+    for source, results in groups:
+        message += f"<b>__________ {_escape_html(source)} __________</b>\n"
+        for i, (_src, title, summary, link) in enumerate(results, 1):
+            title_h = _escape_html(title)
+            summary_h = _escape_html(
+                summary[:_SUMMARY_CHAR_LIMIT] + ("…" if len(summary) > _SUMMARY_CHAR_LIMIT else "")
+            )
+            message += (
+                f"<b>{i}.</b> {title_h}\n"
+                f"{summary_h}\n"
+                f"<a href=\"{link}\">🔗 Link</a>\n\n"
+            )
 
     # Hard-truncate to respect Telegram's message length limit.
     return message[:_MAX_MESSAGE_LENGTH]

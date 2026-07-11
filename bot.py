@@ -45,9 +45,6 @@ from telegram.constants import ParseMode
 from news import fetch_news
 from jokes import fetch_random_joke
 from pickup import fetch_random_pickup_line, fetch_random_compliment
-from roasts import fetch_random_roast
-from moods import save_mood, get_summary
-from period import save_period, get_summary as get_period_summary, toggle_symptom, get_symptoms, SYMPTOM_IDS, SYMPTOM_OPTIONS
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -141,7 +138,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         [[KeyboardButton("گذا میخاممم!")]],
         resize_keyboard=True,
     )
-    await update.message.reply_text("Welcome!", reply_markup=kb)
+    if update.effective_user.id == GF_USER_ID:
+        await update.message.reply_text("خوش اومدی حنا خانوم!", reply_markup=kb)
+    else:
+        await update.message.reply_text("خوش اومدی!", reply_markup=kb)
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a list of available commands."""
+    help_text = (
+        "دستورات من:\n\n"
+        "/start - شروع و نمایش کیبورد\n"
+        "/help - نمایش این پیام\n"
+        "/pull - اخبار لینوکس و سخت‌افزار\n"
+        "/btop - وضعیت سرور (CPU, RAM, Disk)\n"
+        "/joke - یه جوک تصادفی\n"
+        "/pickup - یه خط رمانتیک\n"
+        "/compliment - یه تعریف قشنگ\n"
+        "/tease - یه میو بفرست 🐱\n"
+        "/food - سفارش غذا\n"
+        "/clear - پاک کردن پیام‌ها"
+    )
+    await update.message.reply_text(help_text)
 
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -175,183 +193,6 @@ async def compliment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     line = await fetch_random_compliment()
     msg = await update.message.reply_text(line)
     _track_message(chat_id, msg.message_id)
-
-
-async def roast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a random playful roast."""
-    chat_id = update.effective_chat.id
-    line = await fetch_random_roast()
-    msg = await update.message.reply_text(line)
-    _track_message(chat_id, msg.message_id)
-
-
-async def mood_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_user.id not in (GF_USER_ID, MY_USER_ID):
-        await update.message.reply_text("فقط برای دوست خاصم 😼")
-        return
-
-    if context.args and context.args[0] == "summary":
-        summary = get_summary()
-        await update.message.reply_text(summary)
-        return
-
-    keyboard = [
-        [InlineKeyboardButton("پرانرژی 🟢", callback_data="mood_پرانرژی")],
-        [InlineKeyboardButton("موج 🟡", callback_data="mood_موج")],
-        [InlineKeyboardButton("خسته 🔵", callback_data="mood_خسته")],
-        [InlineKeyboardButton("ناامید 🟠", callback_data="mood_ناامید")],
-        [InlineKeyboardButton("آتش 🔴", callback_data="mood_آتش")],
-        [InlineKeyboardButton("خلاصه 📊", callback_data="mood_summary")],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("حالیت چطوره؟", reply_markup=reply_markup)
-
-
-async def mood_callback(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
-    query = update.callback_query
-    await query.answer()
-
-    if query.from_user.id not in (GF_USER_ID, MY_USER_ID):
-        try:
-            await query.edit_message_text("فقط برای دوست خاصم 😼")
-        except Exception:
-            pass
-        return
-
-    data = query.data
-
-    if data == "mood_summary":
-        summary = get_summary()
-        try:
-            await query.edit_message_text(summary)
-        except Exception:
-            await context.bot.send_message(chat_id=query.message.chat_id, text=summary)
-        return
-
-    mood = data.removeprefix("mood_")
-    if not mood:
-        return
-
-    try:
-        save_mood(mood)
-    except Exception:
-        try:
-            await query.edit_message_text("کمی بعد امتحان کن")
-        except Exception:
-            pass
-        return
-
-    try:
-        await query.edit_message_text(f"ثبت شد: {mood}")
-    except Exception:
-        pass
-
-
-async def period_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_user.id not in (GF_USER_ID, MY_USER_ID):
-        await update.message.reply_text("فقط برای دوست خاصم 😼")
-        return
-
-    keyboard = [
-        [InlineKeyboardButton("شروع پریود (امروز) 📅", callback_data="period_today")],
-        [InlineKeyboardButton("علائم و خلق و خو 🧠", callback_data="period_mood")],
-        [InlineKeyboardButton("خلاصه 📊", callback_data="period_summary")],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("بوم پریود؟", reply_markup=reply_markup)
-
-
-async def period_callback(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
-    query = update.callback_query
-    await query.answer()
-
-    if query.from_user.id not in (GF_USER_ID, MY_USER_ID):
-        try:
-            await query.edit_message_text("فقط برای دوست خاصم 😼")
-        except Exception:
-            pass
-        return
-
-    data = query.data
-
-    if data == "period_today":
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        save_period(today_str)
-        try:
-            await query.edit_message_text("ثبت شد.")
-        except Exception:
-            pass
-        return
-
-    if data == "period_summary":
-        summary = get_period_summary()
-        try:
-            await query.edit_message_text(summary)
-        except Exception:
-            await context.bot.send_message(chat_id=query.message.chat_id, text=summary)
-        return
-
-    if data == "period_mood":
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        symptoms = get_symptoms(today_str)
-
-        rows = []
-        for i in range(0, len(SYMPTOM_OPTIONS), 2):
-            row = []
-            for j in range(2):
-                if i + j < len(SYMPTOM_OPTIONS):
-                    sid, display = SYMPTOM_OPTIONS[i + j]
-                    checked = "✅ " if sid in symptoms else ""
-                    row.append(InlineKeyboardButton(f"{checked}{display}", callback_data=f"period_symptom_{sid}"))
-            rows.append(row)
-
-        rows.append([InlineKeyboardButton("ثبت شد! ✅", callback_data="period_mood_save")])
-        reply_markup = InlineKeyboardMarkup(rows)
-        try:
-            await query.edit_message_text("علائم امروز رو انتخاب کن:", reply_markup=reply_markup)
-        except Exception:
-            await context.bot.send_message(chat_id=query.message.chat_id, text="علائم امروز رو انتخاب کن:", reply_markup=reply_markup)
-        return
-
-    if data.startswith("period_symptom_"):
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        sid = data.removeprefix("period_symptom_")
-        if sid not in SYMPTOM_IDS:
-            return
-        try:
-            toggled = toggle_symptom(today_str, sid)
-        except Exception:
-            toggled = []
-
-        symptoms = toggled
-        rows = []
-        for i in range(0, len(SYMPTOM_OPTIONS), 2):
-            row = []
-            for j in range(2):
-                if i + j < len(SYMPTOM_OPTIONS):
-                    opt_id, display = SYMPTOM_OPTIONS[i + j]
-                    checked = "✅ " if opt_id in symptoms else ""
-                    row.append(InlineKeyboardButton(f"{checked}{display}", callback_data=f"period_symptom_{opt_id}"))
-            rows.append(row)
-
-        rows.append([InlineKeyboardButton("ثبت شد! ✅", callback_data="period_mood_save")])
-        reply_markup = InlineKeyboardMarkup(rows)
-        try:
-            await query.edit_message_text("علائم امروز رو انتخاب کن:", reply_markup=reply_markup)
-        except Exception:
-            pass
-        return
-
-    if data == "period_mood_save":
-        try:
-            await query.edit_message_text("علائم ثبت شد ✅")
-        except Exception:
-            pass
-        return
 
 
 async def tease(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -611,8 +452,8 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def daily_news(bot) -> None:
     """
-    Infinite loop that sends a Linux / hardware news digest to every chat
-    that has interacted with the bot, once per day at 06:00 Tehran time.
+    Infinite loop that sends a Linux / hardware news digest to MY_USER_ID
+    once per day at 06:00 Tehran time.
     """
     while True:
         wait_seconds = _seconds_until_tebran(target_hour=6)
@@ -621,19 +462,14 @@ async def daily_news(bot) -> None:
 
         try:
             news = await fetch_news()
-            for chat_id in chat_ids.copy():
-                try:
-                    msg = await bot.send_message(
-                        chat_id=chat_id,
-                        text=news,
-                        parse_mode=ParseMode.HTML,
-                    )
-                    _track_message(chat_id, msg.message_id)
-                except Exception as e:
-                    logger.error("Failed to send to %s: %s", chat_id, e)
-                    chat_ids.discard(chat_id)
+            await bot.send_message(
+                chat_id=MY_USER_ID,
+                text=news,
+                parse_mode=ParseMode.HTML,
+            )
+            logger.info("Daily news sent to %s", MY_USER_ID)
         except Exception as e:
-            logger.error("Error fetching news: %s", e)
+            logger.error("Failed to send daily news to %s: %s", MY_USER_ID, e)
 
 
 async def scheduled_pickups(bot) -> None:
@@ -722,29 +558,21 @@ def main() -> None:
 
     # Command handlers — order matters: more specific patterns first.
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("pull", pull))
     app.add_handler(CommandHandler("btop", btop))
     app.add_handler(CommandHandler("clear", clear))
     app.add_handler(CommandHandler("joke", joke))
     app.add_handler(CommandHandler("pickup", pickup))
     app.add_handler(CommandHandler("compliment", compliment))
-    app.add_handler(CommandHandler("roast", roast))
     app.add_handler(CommandHandler("tease", tease))
     app.add_handler(CommandHandler("food", food))
-    app.add_handler(CommandHandler("mood", mood_command))
-    app.add_handler(CommandHandler("period", period_command))
 
     # Inline keyboard callback for food orders.
     app.add_handler(CallbackQueryHandler(food_callback, pattern="^food_"))
 
     # Inline keyboard callback for order confirmation ("ثبت شد!").
     app.add_handler(CallbackQueryHandler(confirm_callback, pattern="^confirm_"))
-
-    # Inline keyboard callback for mood logging.
-    app.add_handler(CallbackQueryHandler(mood_callback, pattern="^mood_"))
-
-    # Inline keyboard callback for period tracking.
-    app.add_handler(CallbackQueryHandler(period_callback, pattern="^period_"))
 
     # Persistent keyboard button → delegate to food handler.
     app.add_handler(
