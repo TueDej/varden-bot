@@ -5,12 +5,6 @@ News Feed Module
 Fetches the latest Linux and hardware news from configured RSS/Atom feeds,
 formats them into an HTML digest suitable for Telegram, and returns the result
 as a single string.
-
-Public API:
-    fetch_news() — async, returns a formatted news digest string.
-
-Feed sources are defined in ``RSS_FEEDS``.  Each feed is fetched concurrently
-via ``asyncio.gather`` so a slow or down feed does not block the others.
 """
 
 import feedparser
@@ -18,21 +12,19 @@ import asyncio
 import html
 import re
 import logging
-import requests
+import socket
+import urllib.request
+import ssl
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
-# Timeout in seconds for fetching a single feed.
-_FEED_TIMEOUT = 10
+# Hard socket timeout — applies to DNS + connect + read at OS level.
+socket.setdefaulttimeout(10)
 
 # Total timeout for all feeds combined.
-_TOTAL_TIMEOUT = 30
-
-# ---------------------------------------------------------------------------
-# Feed configuration
-# ---------------------------------------------------------------------------
+_TOTAL_TIMEOUT = 25
 
 RSS_FEEDS: dict[str, str] = {
     "Phoronix": "https://www.phoronix.com/rss.php",
@@ -41,21 +33,10 @@ RSS_FEEDS: dict[str, str] = {
     "Ars Technica": "https://feeds.arstechnica.com/arstechnica/index",
 }
 
-# Maximum number of entries to pull from each feed.
 _MAX_ENTRIES_PER_FEED = 3
-
-# Skip entries older than this many days.
 _MAX_AGE_DAYS = 7
-
-# Telegram message length limit (with a small safety margin).
 _MAX_MESSAGE_LENGTH = 4090
-
-# Summaries longer than this are truncated with an ellipsis.
 _SUMMARY_CHAR_LIMIT = 180
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 
 def _strip_html(text: str) -> str:
@@ -70,12 +51,14 @@ def _escape_html(text: str) -> str:
 def _fetch_feed_sync(name: str, url: str) -> list[tuple[str, str, str, str]]:
     cutoff = datetime.now(timezone.utc) - timedelta(days=_MAX_AGE_DAYS)
 
-    resp = requests.get(url, timeout=_FEED_TIMEOUT, headers={
-        "User-Agent": "VardenBot/1.0 (+https://github.com/TueDej/varden-bot)"
+    ctx = ssl.create_default_context()
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "VardenBot/1.0"
     })
-    resp.raise_for_status()
+    resp = urllib.request.urlopen(req, context=ctx, timeout=10)
+    raw = resp.read()
 
-    feed = feedparser.parse(BytesIO(resp.content))
+    feed = feedparser.parse(BytesIO(raw))
 
     results = []
     for entry in feed.entries:
@@ -100,16 +83,11 @@ async def _fetch_feed(name: str, url: str) -> list[tuple[str, str, str, str]]:
     try:
         return await asyncio.wait_for(
             asyncio.to_thread(_fetch_feed_sync, name, url),
-            timeout=_FEED_TIMEOUT + 5,
+            timeout=15,
         )
     except Exception as e:
         logger.warning("Error fetching %s: %s", name, e)
         return []
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 
 async def fetch_news() -> str:
@@ -151,10 +129,6 @@ async def fetch_news() -> str:
 
     return message[:_MAX_MESSAGE_LENGTH]
 
-
-# ---------------------------------------------------------------------------
-# Standalone test runner
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
