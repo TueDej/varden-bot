@@ -33,7 +33,7 @@ _FEED_TIMEOUT = 15
 RSS_FEEDS: dict[str, str] = {
     "Phoronix": "https://www.phoronix.com/rss.php",
     "OMG! Ubuntu": "https://www.omgubuntu.co.uk/feed",
-    "Tom's Hardware": "https://www.tomshardware.com/feeds/all",
+    "Tom's Hardware": "https://www.tomshardware.com/feeds.xml",
     "Ars Technica": "https://feeds.arstechnica.com/arstechnica/index",
 }
 
@@ -84,7 +84,7 @@ async def _fetch_feed(name: str, url: str) -> list[tuple[str, str, str, str]]:
 
         cutoff = datetime.now(timezone.utc) - timedelta(days=_MAX_AGE_DAYS)
 
-        async with httpx.AsyncClient(timeout=_FEED_TIMEOUT, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=_FEED_TIMEOUT) as client:
             resp = await client.get(url)
             resp.raise_for_status()
 
