@@ -19,7 +19,7 @@ import html
 import re
 import logging
 from io import BytesIO
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ async def _fetch_feed(name: str, url: str) -> list[tuple[str, str, str, str]]:
 
         cutoff = datetime.now(timezone.utc) - timedelta(days=_MAX_AGE_DAYS)
 
-        async with httpx.AsyncClient(timeout=_FEED_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=_FEED_TIMEOUT, follow_redirects=True) as client:
             resp = await client.get(url)
             resp.raise_for_status()
 
