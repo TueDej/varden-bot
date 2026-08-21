@@ -19,12 +19,14 @@ _banner() {
 }
 
 _step() {
-    echo -ne "${BLUE}[..]${NC} $1... "
+    local desc=$1
+    shift
+    echo -ne "${BLUE}[..]${NC} ${desc}... "
     if "$@" > /tmp/varden-install-last.log 2>&1; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗${NC}"
-        _error "Step failed: $1 (see /tmp/varden-install-last.log)"
+        _error "Step failed: ${desc} (see /tmp/varden-install-last.log)"
         tail -n 20 /tmp/varden-install-last.log >&2 || true
         exit 1
     fi
@@ -76,16 +78,16 @@ echo -e ""
 RUN_USER=${SUDO_USER:-$(id -un)}
 APP_DIR=$(pwd)
 
-_step sudo apt update
-_step sudo apt install -y python3 python3-pip python3-venv
+_step "Updating package index" sudo apt update
+_step "Installing system dependencies (python3, pip, venv)" sudo apt install -y python3 python3-pip python3-venv
 
-_step python3 -m venv venv
+_step "Creating virtual environment" python3 -m venv venv
 # shellcheck source=/dev/null
 source venv/bin/activate
 
-_step pip install -r requirements.txt
+_step "Installing Python packages" pip install -r requirements.txt
 
-_step sudo tee /etc/systemd/system/varden-bot.service <<EOF
+_step "Writing systemd service file" sudo tee /etc/systemd/system/varden-bot.service <<EOF
 [Unit]
 Description=Varden Telegram Bot
 After=network.target
@@ -103,10 +105,10 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-_step sudo chmod 600 /etc/systemd/system/varden-bot.service
-_step sudo systemctl daemon-reload
-_step sudo systemctl enable varden-bot
-_step sudo systemctl restart varden-bot
+_step "Restricting service file permissions" sudo chmod 600 /etc/systemd/system/varden-bot.service
+_step "Reloading systemd" sudo systemctl daemon-reload
+_step "Enabling service" sudo systemctl enable varden-bot
+_step "Starting service" sudo systemctl restart varden-bot
 
 _success "Varden Bot installed and running!"
 echo ""

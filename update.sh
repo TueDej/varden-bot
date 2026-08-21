@@ -19,12 +19,14 @@ _banner() {
 }
 
 _step() {
-    echo -ne "${BLUE}[..]${NC} $1... "
+    local desc=$1
+    shift
+    echo -ne "${BLUE}[..]${NC} ${desc}... "
     if "$@" > /tmp/varden-update-last.log 2>&1; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗${NC}"
-        echo -e "${RED}[✗] Step failed: $1 (see /tmp/varden-update-last.log)${NC}" >&2
+        echo -e "${RED}[✗] Step failed: ${desc} (see /tmp/varden-update-last.log)${NC}" >&2
         tail -n 20 /tmp/varden-update-last.log >&2 || true
         exit 1
     fi
@@ -37,10 +39,10 @@ _success() {
 
 _banner
 
-_step git pull
+_step "Pulling latest changes" git pull
 source venv/bin/activate
-_step pip install -r requirements.txt
-_step sudo systemctl restart varden-bot
+_step "Installing Python packages" pip install -r requirements.txt
+_step "Restarting service" sudo systemctl restart varden-bot
 
 _success "Varden Bot updated and restarted!"
 echo ""
