@@ -239,11 +239,12 @@ async def food(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
     await update.message.reply_text("چی چی میخوی؟", reply_markup=reply_markup)
-    # Send a zero-width space to attach the persistent keyboard without
-    # showing a visible second message.
+    # A message can only carry one keyboard, so the persistent reply keyboard
+    # goes on a small follow-up message.  Telegram rejects whitespace-only
+    # texts (e.g. a zero-width space), so use an actual emoji.
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="\u200B",
+        text="👇",
         reply_markup=persistent_kb,
     )
 
@@ -558,6 +559,15 @@ async def cleanup_stale() -> None:
 # ---------------------------------------------------------------------------
 
 
+async def log_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log any exception raised by a handler instead of dumping a traceback."""
+    logger.error(
+        "Unhandled error while processing update %s: %s",
+        update,
+        context.error,
+    )
+
+
 # Keep references to background tasks so they aren't garbage-collected.
 _background_tasks: list[asyncio.Task] = []
 
@@ -625,6 +635,9 @@ def main() -> None:
 
     # Catch-all for plain text (must be last).
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+
+    # Global error handler so unhandled exceptions log cleanly.
+    app.add_error_handler(log_error)
 
     logger.info("Bot started")
     app.run_polling()
