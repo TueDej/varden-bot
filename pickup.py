@@ -1,13 +1,13 @@
 """
 Pickup Lines & Compliments Module
-==================================
+=================================
 
 Provides two public coroutines that return random pickup lines or
-compliments.
+compliments from curated local lists.
 
-Each function first attempts to fetch from an external web API.  If the
-API is unreachable or returns an unexpected format, a curated local list
-is used as a fallback.
+Note: these used to be fetched from api.quotable.io and complimentr.com,
+but both services are dead (quotable times out; complimentr is a parked
+domain), so the local lists are now the only source.
 
 Public API:
     fetch_random_pickup_line()  — async, returns a pickup line string.
@@ -15,13 +15,9 @@ Public API:
 """
 
 import random
-import logging
-import httpx
-
-logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Fallback data — local lists used when APIs are unavailable.
+# Local content
 # ---------------------------------------------------------------------------
 
 PICKUP_LINES: list[str] = [
@@ -66,12 +62,6 @@ COMPLIMENTS: list[str] = [
     "You have no idea the difference you make just by being you.",
 ]
 
-# API endpoints.
-_QUOTE_API_URL = "https://api.quotable.io/random?tags=love"
-_COMPLIMENT_API_URL = "https://complimentr.com/api"
-
-# HTTP timeout in seconds.
-_REQUEST_TIMEOUT = 10
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -80,47 +70,23 @@ _REQUEST_TIMEOUT = 10
 
 async def fetch_random_pickup_line() -> str:
     """
-    Return a random pickup line.
-
-    Attempts to fetch from the Quotable API (love-tagged quotes) first.
-    On failure, falls back to a random entry from ``PICKUP_LINES``.
+    Return a random pickup line from the local list.
 
     Returns
     -------
     str
         A pickup line string.
     """
-    try:
-        async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT) as client:
-            resp = await client.get(_QUOTE_API_URL)
-            if resp.status_code == 200:
-                data = resp.json()
-                return f'"{data["content"]}"\n— {data["author"]}'
-    except Exception as e:
-        logger.warning("Quote API failed: %s", e)
-
     return random.choice(PICKUP_LINES)
 
 
 async def fetch_random_compliment() -> str:
     """
-    Return a random compliment.
-
-    Attempts to fetch from the Complimentr API first.  On failure, falls
-    back to a random entry from ``COMPLIMENTS``.
+    Return a random compliment from the local list.
 
     Returns
     -------
     str
         A compliment string.
     """
-    try:
-        async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT) as client:
-            resp = await client.get(_COMPLIMENT_API_URL)
-            if resp.status_code == 200:
-                data = resp.json()
-                return data["compliment"]
-    except Exception as e:
-        logger.warning("Compliment API failed: %s", e)
-
     return random.choice(COMPLIMENTS)

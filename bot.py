@@ -15,11 +15,12 @@ Responsibilities:
 
 Environment variables:
     TELEGRAM_BOT_TOKEN  — Bot token from BotFather (required)
-    GF_USER_ID          — Telegram user ID for scheduled pickup messages
-    MY_USER_ID          — Telegram user ID for food-order notifications
+    GF_USER_ID          — Telegram user ID for scheduled pickup messages (required)
+    MY_USER_ID          — Telegram user ID for food-order notifications (required)
 """
 
 import os
+import time
 import asyncio
 import logging
 import psutil
@@ -57,30 +58,46 @@ logger = logging.getLogger(__name__)
 # Configuration (from environment)
 # ---------------------------------------------------------------------------
 
+def _env_int(name: str) -> int | None:
+    """Parse an integer environment variable, returning None if unset."""
+    value = os.environ.get(name)
+    return int(value) if value else None
+
+
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-GF_USER_ID = int(os.environ.get("GF_USER_ID", "190637471"))
-MY_USER_ID = int(os.environ.get("MY_USER_ID", "2059317327"))
+GF_USER_ID = _env_int("GF_USER_ID")
+MY_USER_ID = _env_int("MY_USER_ID")
 
 # ---------------------------------------------------------------------------
 # Shared mutable state
 # ---------------------------------------------------------------------------
 
-# Set of chat IDs that have interacted with the bot (used for broadcast).
-chat_ids: set[int] = set()
-
 # Maps chat_id → list of bot message IDs sent in that chat.
 # Used by /clear to delete bot messages in bulk.
 bot_messages: dict[int, list[int]] = {}
 
-# Chats where the bot is waiting for the user to type a custom order.
-_chats_awaiting_custom_order: set[int] = set()
+# Maximum number of message IDs tracked per chat (oldest are dropped).
+_MAX_TRACKED_MESSAGES = 200
+
+# Chats where the bot is waiting for the user to type a custom order,
+# mapped to the unix timestamp of when the wait started.
+_chats_awaiting_custom_order: dict[int, float] = {}
+
+# How long the bot waits for a custom order before giving up.
+_CUSTOM_ORDER_TIMEOUT = 5 * 60
 
 
 class _AwaitingCustomOrder(filters.MessageFilter):
-    """Pass only for chats that are expecting a custom order message."""
+    """Pass only for chats that recently asked to type a custom order."""
 
     def filter(self, message):
-        return message.chat_id in _chats_awaiting_custom_order
+        started = _chats_awaiting_custom_order.get(message.chat_id)
+        if started is None:
+            return False
+        if time.time() - started > _CUSTOM_ORDER_TIMEOUT:
+            del _chats_awaiting_custom_order[message.chat_id]
+            return False
+        return True
 
 
 # Tehran is UTC+3:30 with no daylight saving.
@@ -91,16 +108,12 @@ TEHRAN_OFFSET = timedelta(hours=3, minutes=30)
 # ---------------------------------------------------------------------------
 
 
-def _ensure_chat_recorded(chat_id: int) -> None:
-    """Guarantee that *chat_id* has an entry in ``bot_messages``."""
-    if chat_id not in bot_messages:
-        bot_messages[chat_id] = []
-
-
 def _track_message(chat_id: int, message_id: int) -> None:
-    """Append *message_id* to the per-chat tracking list."""
-    _ensure_chat_recorded(chat_id)
-    bot_messages[chat_id].append(message_id)
+    """Append *message_id* to the per-chat tracking list, bounded in size."""
+    msgs = bot_messages.setdefault(chat_id, [])
+    msgs.append(message_id)
+    if len(msgs) > _MAX_TRACKED_MESSAGES:
+        del msgs[: len(msgs) - _MAX_TRACKED_MESSAGES]
 
 
 def _tehran_now() -> datetime:
@@ -108,7 +121,7 @@ def _tehran_now() -> datetime:
     return datetime.now(timezone.utc) + TEHRAN_OFFSET
 
 
-def _seconds_until_tebran(target_hour: int, target_minute: int = 0) -> float:
+def _seconds_until_tehran(target_hour: int, target_minute: int = 0) -> float:
     """
     Calculate how many seconds remain until the next occurrence of
     *target_hour*:*target_minute* in Tehran time.  If that time has already
@@ -165,8 +178,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Echo back any plain-text message that isn't a recognised command."""
     chat_id = update.effective_chat.id
-    chat_ids.add(chat_id)
-
     msg = await update.message.reply_text(update.message.text)
     _track_message(chat_id, msg.message_id)
 
@@ -204,7 +215,8 @@ async def tease(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await context.bot.send_message(chat_id=GF_USER_ID, text="میو")
         await update.message.reply_text("Sent!")
     except Exception as e:
-        await update.message.reply_text(f"Failed: {e}")
+        logger.error("Failed to send tease: %s", e)
+        await update.message.reply_text("Failed to send 😿")
 
 
 async def food(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -212,7 +224,7 @@ async def food(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     Present an inline keyboard with food choices and set the persistent
     reply keyboard so the user can re-trigger this menu with one tap.
     """
-    _chats_awaiting_custom_order.discard(update.effective_chat.id)
+    _chats_awaiting_custom_order.pop(update.effective_chat.id, None)
 
     keyboard = [
         [InlineKeyboardButton("شوکولات 🍫", callback_data="food_chocolate")],
@@ -259,7 +271,7 @@ async def food_callback(
 
     # "یه چی دیگه" — ask the user to type their own order.
     if query.data == "food_custom":
-        _chats_awaiting_custom_order.add(query.message.chat_id)
+        _chats_awaiting_custom_order[query.message.chat_id] = time.time()
         try:
             await query.edit_message_text("خودت بنویس چی میخوای 👇")
         except Exception:
@@ -317,8 +329,7 @@ async def handle_custom_order(
     confirmation to the user and forwards the order to ``MY_USER_ID``.
     """
     chat_id = update.effective_chat.id
-    _chats_awaiting_custom_order.discard(chat_id)
-    chat_ids.add(chat_id)
+    _chats_awaiting_custom_order.pop(chat_id, None)
 
     custom_text = update.message.text
 
@@ -379,7 +390,6 @@ async def confirm_callback(
 async def pull(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Fetch the latest Linux / hardware news digest and send it."""
     chat_id = update.effective_chat.id
-    _ensure_chat_recorded(chat_id)
 
     status = await update.message.reply_text("Fetching news...")
     _track_message(chat_id, status.message_id)
@@ -391,7 +401,11 @@ async def pull(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def btop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Display current server statistics (CPU, RAM, disk, uptime)."""
-    cpu = psutil.cpu_percent(interval=1)
+    if update.effective_user.id != MY_USER_ID:
+        await update.message.reply_text("این دستور فقط مال خودمه 😼")
+        return
+
+    cpu = await asyncio.to_thread(psutil.cpu_percent, 1)
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
     uptime = datetime.now() - datetime.fromtimestamp(psutil.boot_time())
@@ -459,7 +473,7 @@ async def daily_news(bot) -> None:
     once per day at 06:00 Tehran time.
     """
     while True:
-        wait_seconds = _seconds_until_tebran(target_hour=6)
+        wait_seconds = _seconds_until_tehran(target_hour=6)
         logger.info("Next news in %.1f hours", wait_seconds / 3600)
         await asyncio.sleep(wait_seconds)
 
@@ -495,7 +509,7 @@ async def scheduled_pickups(bot) -> None:
         if next_hour is None:
             next_hour = SCHEDULE_HOURS[0]
 
-        wait_seconds = _seconds_until_tebran(target_hour=next_hour)
+        wait_seconds = _seconds_until_tehran(target_hour=next_hour)
         logger.info("Next pickup in %.1f hours", wait_seconds / 3600)
         await asyncio.sleep(wait_seconds)
 
@@ -517,16 +531,21 @@ async def scheduled_pickups(bot) -> None:
 
 async def cleanup_stale() -> None:
     """
-    Hourly housekeeping — remove chat IDs that have no tracked messages and
-    purge empty message lists to keep memory bounded.
+    Hourly housekeeping — expire stale custom-order waits and purge empty
+    message lists to keep memory bounded.
     """
     while True:
         await asyncio.sleep(3600)
 
-        # Discard chat IDs with no recorded messages.
-        stale_chats = [cid for cid in chat_ids if cid not in bot_messages]
-        for cid in stale_chats:
-            chat_ids.discard(cid)
+        # Expire custom-order waits older than the timeout.
+        now = time.time()
+        expired = [
+            cid
+            for cid, started in _chats_awaiting_custom_order.items()
+            if now - started > _CUSTOM_ORDER_TIMEOUT
+        ]
+        for cid in expired:
+            del _chats_awaiting_custom_order[cid]
 
         # Remove empty message lists.
         empty_chats = [cid for cid, msgs in bot_messages.items() if not msgs]
@@ -539,11 +558,19 @@ async def cleanup_stale() -> None:
 # ---------------------------------------------------------------------------
 
 
+# Keep references to background tasks so they aren't garbage-collected.
+_background_tasks: list[asyncio.Task] = []
+
+
 async def post_init(application) -> None:
     """Called after the Application object is built — launch background tasks."""
-    asyncio.create_task(daily_news(application.bot))
-    asyncio.create_task(scheduled_pickups(application.bot))
-    asyncio.create_task(cleanup_stale())
+    _background_tasks.extend(
+        [
+            asyncio.create_task(daily_news(application.bot)),
+            asyncio.create_task(scheduled_pickups(application.bot)),
+            asyncio.create_task(cleanup_stale()),
+        ]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -553,8 +580,15 @@ async def post_init(application) -> None:
 
 def main() -> None:
     """Build the bot application, register all handlers, and start polling."""
-    if not TOKEN:
-        logger.error("TELEGRAM_BOT_TOKEN not set")
+    missing = [
+        name
+        for name in ("TELEGRAM_BOT_TOKEN", "GF_USER_ID", "MY_USER_ID")
+        if not os.environ.get(name)
+    ]
+    if missing:
+        logger.error(
+            "Missing required environment variables: %s", ", ".join(missing)
+        )
         return
 
     app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()

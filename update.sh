@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Colors
 RED='\033[0;31m'
@@ -19,11 +19,15 @@ _banner() {
 }
 
 _step() {
-    echo -e "${BLUE}[${GREEN}✓${BLUE}]${NC} $1"
-}
-
-_info() {
-    echo -e "${BLUE}[${YELLOW}i${BLUE}]${NC} $1"
+    echo -ne "${BLUE}[..]${NC} $1... "
+    if "$@" > /tmp/varden-update-last.log 2>&1; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${RED}✗${NC}"
+        echo -e "${RED}[✗] Step failed: $1 (see /tmp/varden-update-last.log)${NC}" >&2
+        tail -n 20 /tmp/varden-update-last.log >&2 || true
+        exit 1
+    fi
 }
 
 _success() {
@@ -33,21 +37,14 @@ _success() {
 
 _banner
 
-_step "Pulling latest changes..."
-git pull > /dev/null 2>&1
-
-_step "Activating virtual environment..."
+_step git pull
 source venv/bin/activate
-
-_step "Installing/updating Python packages..."
-pip install -r requirements.txt > /dev/null 2>&1
-
-_step "Restarting service..."
-sudo systemctl restart varden-bot > /dev/null 2>&1
+_step pip install -r requirements.txt
+_step sudo systemctl restart varden-bot
 
 _success "Varden Bot updated and restarted!"
 echo ""
 echo -e "  ${BOLD}Quick commands:${NC}"
-echo -e "    ${CYAN}Status:${NC}  sudo systemctl status varden-bot"
-echo -e "    ${CYAN}Logs:${NC}    sudo journalctl -u varden-bot -f"
+echo -e "    ${CYAN}Status:${NC}  systemctl status varden-bot"
+echo -e "    ${CYAN}Logs:${NC}    journalctl -u varden-bot -f"
 echo ""

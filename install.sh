@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Colors
 RED='\033[0;31m'
@@ -19,11 +19,15 @@ _banner() {
 }
 
 _step() {
-    echo -e "${BLUE}[${GREEN}✓${BLUE}]${NC} $1"
-}
-
-_info() {
-    echo -e "${BLUE}[${YELLOW}i${BLUE}]${NC} $1"
+    echo -ne "${BLUE}[..]${NC} $1... "
+    if "$@" > /tmp/varden-install-last.log 2>&1; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${RED}✗${NC}"
+        _error "Step failed: $1 (see /tmp/varden-install-last.log)"
+        tail -n 20 /tmp/varden-install-last.log >&2 || true
+        exit 1
+    fi
 }
 
 _error() {
@@ -35,67 +39,79 @@ _success() {
     echo -e "${GREEN}${BOLD}  ✔ $1${NC}"
 }
 
-if [ -z "$1" ]; then
-    _banner
+_banner
+
+if [ $# -lt 1 ]; then
     echo -e "  ${YELLOW}Usage:${NC} $0 <bot-token> [gf-user-id] [my-user-id]"
     echo -e ""
     echo -e "  ${CYAN}Arguments:${NC}"
-    echo -e "    bot-token    ${NC}Telegram Bot Token from BotFather"
-    echo -e "    gf-user-id   ${NC}User ID for pickup messages (default: 190637471)"
-    echo -e "    my-user-id   ${NC}User ID for notifications (default: 2059317327)"
+    echo -e "    bot-token    Telegram Bot Token from BotFather"
+    echo -e "    gf-user-id   User ID for pickup messages"
+    echo -e "    my-user-id   User ID for notifications and admin commands"
     exit 1
 fi
 
 TOKEN=$1
-GF_ID=${2:-190637471}
-MY_ID=${3:-2059317327}
+GF_ID=${2:-}
+MY_ID=${3:-}
 
-_banner
+if [ -z "$GF_ID" ]; then
+    read -r -p "Telegram user ID for pickup messages (GF): " GF_ID
+fi
+if [ -z "$MY_ID" ]; then
+    read -r -p "Telegram user ID for notifications/admin (you): " MY_ID
+fi
+
+if ! [[ "$GF_ID" =~ ^[0-9]+$ ]] || ! [[ "$MY_ID" =~ ^[0-9]+$ ]]; then
+    _error "User IDs must be numeric."
+    exit 1
+fi
 
 echo -e "  ${BOLD}Configuration:${NC}"
 echo -e "    ${CYAN}GF User ID:${NC}  $GF_ID"
 echo -e "    ${CYAN}My User ID:${NC}  $MY_ID"
 echo -e ""
 
-_step "Installing system dependencies (python3, pip, venv)..."
-sudo apt update -qq && sudo apt install -y -qq python3 python3-pip python3-venv > /dev/null 2>&1
+# Run the service as this user, not root.
+RUN_USER=${SUDO_USER:-$(id -un)}
+APP_DIR=$(pwd)
 
-_step "Creating virtual environment..."
-python3 -m venv venv > /dev/null 2>&1
+_step sudo apt update
+_step sudo apt install -y python3 python3-pip python3-venv
 
-_step "Activating virtual environment..."
+_step python3 -m venv venv
+# shellcheck source=/dev/null
 source venv/bin/activate
 
-_step "Installing Python packages..."
-pip install -r requirements.txt > /dev/null 2>&1
+_step pip install -r requirements.txt
 
-_step "Creating systemd service..."
-sudo tee /etc/systemd/system/varden-bot.service > /dev/null <<EOF
+_step sudo tee /etc/systemd/system/varden-bot.service <<EOF
 [Unit]
 Description=Varden Telegram Bot
 After=network.target
 
 [Service]
-WorkingDirectory=$(pwd)
-ExecStart=$(pwd)/venv/bin/python3 bot.py
+WorkingDirectory=$APP_DIR
+ExecStart=$APP_DIR/venv/bin/python3 bot.py
 Environment=TELEGRAM_BOT_TOKEN=$TOKEN
 Environment=GF_USER_ID=$GF_ID
 Environment=MY_USER_ID=$MY_ID
 Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-_step "Enabling and starting service..."
-sudo systemctl daemon-reload > /dev/null 2>&1
-sudo systemctl enable varden-bot > /dev/null 2>&1
-sudo systemctl start varden-bot > /dev/null 2>&1
+_step sudo chmod 600 /etc/systemd/system/varden-bot.service
+_step sudo systemctl daemon-reload
+_step sudo systemctl enable varden-bot
+_step sudo systemctl restart varden-bot
 
 _success "Varden Bot installed and running!"
 echo ""
 echo -e "  ${BOLD}Quick commands:${NC}"
-echo -e "    ${CYAN}Status:${NC}  sudo systemctl status varden-bot"
-echo -e "    ${CYAN}Logs:${NC}    sudo journalctl -u varden-bot -f"
+echo -e "    ${CYAN}Status:${NC}  systemctl status varden-bot"
+echo -e "    ${CYAN}Logs:${NC}    journalctl -u varden-bot -f"
 echo -e "    ${CYAN}Restart:${NC} sudo systemctl restart varden-bot"
 echo ""

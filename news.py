@@ -48,6 +48,43 @@ def _escape_html(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _truncate_html(text: str, limit: int) -> str:
+    """
+    Truncate *text* to at most *limit* characters without cutting an HTML
+    tag in half.  Tags are preserved as-is (not counted against the visible
+    limit) and any tags left open by the cut are closed again.
+    """
+    if len(text) <= limit:
+        return text
+
+    open_tags: list[str] = []
+    visible = 0
+    i = 0
+    while i < len(text):
+        if text[i] == "<":
+            end = text.find(">", i)
+            if end == -1:
+                break  # Unterminated tag — stop before it.
+            tag = text[i + 1 : end]
+            name = tag.lstrip("/").split()[0] if tag.split() else ""
+            if not tag.startswith("/") and not tag.endswith("/"):
+                open_tags.append(name)
+            elif tag.startswith("/"):
+                open_tags = [t for t in open_tags if t != name]
+            i = end + 1
+            continue
+
+        visible += 1
+        i += 1
+        if visible >= limit:
+            break
+
+    truncated = text[:i]
+    # Close any tags that were left open, innermost first.
+    closing = "".join(f"</{tag}>" for tag in reversed(open_tags))
+    return truncated + closing
+
+
 def _fetch_feed_sync(name: str, url: str) -> list[tuple[str, str, str, str]]:
     cutoff = datetime.now(timezone.utc) - timedelta(days=_MAX_AGE_DAYS)
 
@@ -121,13 +158,14 @@ async def fetch_news() -> str:
             summary_h = _escape_html(
                 summary[:_SUMMARY_CHAR_LIMIT] + ("…" if len(summary) > _SUMMARY_CHAR_LIMIT else "")
             )
+            link_h = _escape_html(link)
             message += (
                 f"<b>{i}.</b> {title_h}\n"
                 f"{summary_h}\n"
-                f"<a href=\"{link}\">🔗 Link</a>\n\n"
+                f"<a href=\"{link_h}\">🔗 Link</a>\n\n"
             )
 
-    return message[:_MAX_MESSAGE_LENGTH]
+    return _truncate_html(message, _MAX_MESSAGE_LENGTH)
 
 
 if __name__ == "__main__":
