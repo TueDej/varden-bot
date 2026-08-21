@@ -23,9 +23,9 @@ _step() {
     shift
     echo -ne "${BLUE}[..]${NC} ${desc}... "
     if "$@" > /tmp/varden-update-last.log 2>&1; then
-        echo -e "\r${GREEN}[✓]${NC} ${desc}   "
+        echo -e "\r${GREEN}[✓]${NC} ${desc}     "
     else
-        echo -e "\r${RED}[✗]${NC} ${desc}   "
+        echo -e "\r${RED}[✗]${NC} ${desc}     "
         _error "Step failed (see /tmp/varden-update-last.log)"
         tail -n 20 /tmp/varden-update-last.log >&2 || true
         exit 1
