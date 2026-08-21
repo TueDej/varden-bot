@@ -13,7 +13,7 @@ NC='\033[0m' # No Color
 _banner() {
     echo -e "${CYAN}${BOLD}"
     echo "╔══════════════════════════════════════╗"
-    echo "║        🔄  Varden Bot Updater       ║"
+    echo "║        🔄  Varden Bot Updater        ║"
     echo "╚══════════════════════════════════════╝"
     echo -e "${NC}"
 }
