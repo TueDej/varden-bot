@@ -23,10 +23,10 @@ _step() {
     shift
     echo -ne "${BLUE}[..]${NC} ${desc}... "
     if "$@" > /tmp/varden-install-last.log 2>&1; then
-        echo -e "${GREEN}✓${NC}"
+        echo -e "\r${GREEN}[✓]${NC} ${desc}   "
     else
-        echo -e "${RED}✗${NC}"
-        _error "Step failed: ${desc} (see /tmp/varden-install-last.log)"
+        echo -e "\r${RED}[✗]${NC} ${desc}   "
+        _error "Step failed (see /tmp/varden-install-last.log)"
         tail -n 20 /tmp/varden-install-last.log >&2 || true
         exit 1
     fi
@@ -38,7 +38,7 @@ _error() {
 
 _success() {
     echo -e ""
-    echo -e "${GREEN}${BOLD}  ✔ $1${NC}"
+    echo -e "${GREEN}${BOLD}[✓] $1${NC}"
 }
 
 _banner
